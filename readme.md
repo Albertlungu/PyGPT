@@ -1,3 +1,9 @@
+# Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
 # Tokenization process
 
 To get tokenization training data as a .txt file, follow these steps:
