@@ -110,24 +110,26 @@ class BPETokenizer:
 
 if __name__ == "__main__":
 
+    # Variable declaration (params for tokenizer class)
     dataset_length = 1000000
     vocab_size = 1000
 
     training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
-    print("Read training data")
+    # print("Read training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
-    print("Encoded training data")
-    print(list(tokens)[:100])
+    # print("Encoded training data")
+    # print(list(tokens)[:100])
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
-    print("Initialized tokenizer")
+    # print("Initialized tokenizer")
 
     ids = tokenizer.make_merges(tokens, dataset_length) # calls make_merges function from inside tokenizer class and passes tokens
-    print("Merged tokens")
+    # print("Merged tokens")
 
     # printing stats about the tokens for comparison
     print("Original tokens length:", len(tokens[:dataset_length]))
     print("Final ids length:", len(ids))
     print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
+    
     # pass

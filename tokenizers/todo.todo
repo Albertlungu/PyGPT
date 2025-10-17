@@ -1,0 +1,4 @@
+Add a decoding function to BPETokenizer
+Save the decoded tokens into another file 
+    The tokens should not be the utf-8-encoded bytes, but should be actual, human-readable text
+    This is because the tokens will be used to train LLM
