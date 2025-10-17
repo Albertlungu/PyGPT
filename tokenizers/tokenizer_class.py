@@ -87,7 +87,7 @@ class BPETokenizer:
         Returns:
             list: The list of ids with adjacent ids merged until the vocab size is reached.
         """
-        
+
         num_merges = self.vocab_size - self.base_vocab_size
         merges = {}
         input = list(input)
@@ -102,7 +102,7 @@ class BPETokenizer:
             pair = max(stats, key=stats.get) # getting the pair with the highest count (most repeated pair)
             # print("Most repeated pair: ", pair)
             idx = base_vocab_start + i
-            # print(f"merging {pair} into a new token: {idx}")  
+            # print(f"merging {pair} into a new token: {idx}")
             input = self.merge(input[:dataset_length], pair, idx) # merging the most repeated pair into one token
             merges[pair] = idx
         self.merges = merges
@@ -110,19 +110,23 @@ class BPETokenizer:
 
 if __name__ == "__main__":
 
+
+    # extract_wiki_text('/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', '/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/all_wiki_text.txt')
+
     # Variable declaration (params for tokenizer class)
     dataset_length = 1000000
     vocab_size = 1000
 
+
     training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
-    # print("Read training data")
+    print("Read training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
-    # print("Encoded training data")
+    print("Encoded training data")
     # print(list(tokens)[:100])
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
-    # print("Initialized tokenizer")
+    print("Initialized tokenizer")
 
     ids = tokenizer.make_merges(tokens, dataset_length) # calls make_merges function from inside tokenizer class and passes tokens
     # print("Merged tokens")
@@ -131,5 +135,4 @@ if __name__ == "__main__":
     print("Original tokens length:", len(tokens[:dataset_length]))
     print("Final ids length:", len(ids))
     print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
-    
     # pass
