@@ -1,4 +1,5 @@
 *.xml
+*.pkl
 all_wiki_text.txt
 
 **/*.pyc
