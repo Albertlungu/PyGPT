@@ -1,4 +1,8 @@
 import numpy as np
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from user_input import UserInput
 import xml.etree.ElementTree as ET
 import re
 from tqdm import tqdm
@@ -44,6 +48,9 @@ class BPETokenizer:
         self.vocab_size = vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
         self.base_vocab_size = 256
         self.merges = {} # initializing merges dictionary
+        self.vocab = {idx: bytes([idx]) for idx in range(256)}
+        for (p0,p1), idx in self.merges.items():
+            self.vocab[idx] = self.vocab[p0] + self.vocab[p1]
 
     def get_stats(self, input):
         """
@@ -51,7 +58,7 @@ class BPETokenizer:
         The key is a tuple of two adjacent characters, and the value is the count of that pair.
         """
         counts = {} # initializing counts dictionary
-        for pair in zip(input, input[1:]): # zipping characters that are one next to another (imagine a zipper, how the teeth thread --> this is what zip() does) 
+        for pair in zip(input, input[1:]): # zipping characters that are one next to another (imagine a zipper, how the teeth thread --> this is what zip() does)
             counts[pair] = counts.get(pair, 0) + 1 # counts the amount of adjacent pairs in a text
         return counts
 
@@ -77,12 +84,13 @@ class BPETokenizer:
                 new_input.append(input[i])
                 i += 1
         return new_input
-    
+
     def make_merges(self, input, dataset_length):
         """
         Merge adjacent ids in a list of ids until the vocab size is reached. Why? This is to increase the vocab size. This is to compress more tokens into a a single token, making the context length more compact, and the model can remember more at a time.
         Args:
             input (list): The list of ids to merge.
+            dataset_length (int): The length of the dataset to consider for merges.
 
         Returns:
             list: The list of ids with adjacent ids merged until the vocab size is reached.
@@ -108,14 +116,32 @@ class BPETokenizer:
         self.merges = merges
         return input
 
+    def decode(self, ids):
+        tokens = b"".join(self.vocab[idx] for idx in ids)
+        text = tokens.decode("utf-8")
+        return text
+
+    def encode(self, text):
+        tokens = list(text.encode("utf-8"))
+        while len(tokens) >= 2:
+            stats = self.get_stats(tokens)
+            pair = min(stats, key = lambda pair: self.merges.get(pair, float('inf')))
+            if pair not in self.merges:
+                break
+            idx = self.merges[pair]
+            tokens = self.merge(tokens, pair, idx)
+        return tokens
+
 if __name__ == "__main__":
 
 
     # extract_wiki_text('/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', '/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/all_wiki_text.txt')
 
     # Variable declaration (params for tokenizer class)
-    dataset_length = 1000000
-    vocab_size = 1000
+    dataset_length = 1000 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
+    # TODO: When ready, change vocab size to 32000 for final tokenizer training
+    vocab_size = 276
+    print("Set dataset length and vocab size")
 
 
     training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
@@ -135,4 +161,9 @@ if __name__ == "__main__":
     print("Original tokens length:", len(tokens[:dataset_length]))
     print("Final ids length:", len(ids))
     print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
+
+    user_input = UserInput()
+    print("User input: ", user_input.user_input)
+    encoded_input = tokenizer.encode(user_input.user_input)
+    print("Encoded user input: ", encoded_input)
     # pass

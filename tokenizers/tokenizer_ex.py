@@ -233,3 +233,28 @@ print("tokens length:", len(tokens))
 print("ids length:", len(ids))
 print(f"compression ratio: {len(tokens) / len(ids):.2f}X")
 
+vocab = {idx: bytes([idx]) for idx in range(256)}
+for (p0,p1), idx in merges.items():
+    vocab[idx] = vocab[p0] + vocab[p1]
+
+def decode(ids):
+    tokens = b"".join(vocab[idx] for idx in ids)
+    text = tokens.decode("utf-8", errors = 'replace')
+    return text
+
+# decoded_text = decode(ids)
+# print(decoded_text)
+
+def encode(text):
+    tokens = list(text.encode("utf-8"))
+    while len(tokens) >= 2:
+        stats = get_stats(tokens)
+        pair = min(stats, key = lambda pair: merges.get(pair, float('inf')))
+        if pair not in merges:
+            break # nothing else to merged
+        idx = merges[pair]
+        tokens = merge(tokens, pair, idx)
+    return tokens
+
+
+print(encode("Hello, world!"))
