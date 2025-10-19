@@ -25,7 +25,7 @@ if __name__ == '__main__':
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
     
-    my_message = 'hello world'
+    my_message = 'Nothing much, how are you?'
     print("original message: ", my_message)
     print("encoded message: ", tokenizer.encode_to_ids(my_message))
     for i in tokenizer.encode_to_ids(my_message):

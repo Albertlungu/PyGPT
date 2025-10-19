@@ -54,12 +54,26 @@ class BPETokenizer:
         self._ensure_vocab()
 
     def _rebuild_vocab(self):
+        """
+        Rebuilds the vocab dictionary based on the merges.
+
+        This function should only be called internally when the merges dictionary is updated.
+        It rebuilds the vocab dictionary by iterating over the merges in ascending order of idx.
+        For each merge, it updates the vocab dictionary with the merged token.
+        """
         vocab = {idx: bytes([idx]) for idx in range(self.base_vocab_size)}
         for (p0, p1), idx in sorted(self.merges.items(), key=lambda item: item[1]):
             vocab[idx] = vocab[p0] + vocab[p1]
         self.vocab = vocab
 
     def _ensure_vocab(self):
+        """
+        Ensures that the vocab dictionary is up-to-date with the merges dictionary.
+
+        If any of the merged token ids are not in the vocab dictionary, this function rebuilds the vocab dictionary by calling _rebuild_vocab.
+
+        This function should only be called internally when the merges dictionary is updated.
+        """
         if any(idx not in self.vocab for idx in self.merges.values()):
             self._rebuild_vocab()
 
@@ -166,9 +180,9 @@ if __name__ == "__main__":
     # print(list(tokens)[:100])
 
     # Variable declaration (params for tokenizer class)
-    dataset_length = len(tokens)//1000 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
+    dataset_length = len(tokens)//500 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 1000
+    vocab_size = 2000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
