@@ -141,36 +141,35 @@ class BPETokenizer:
 if __name__ == "__main__":
 
 
-    extract_wiki_text('/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', '/Users/albertlungu/Documents/PyGPT/tokenizer_training_data/all_wiki_text.txt')
-    print("Extracted wiki text")
+    # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
+    # print("Extracted wiki text")
 
-    # # Variable declaration (params for tokenizer class)
-    # dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
-    # # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    # vocab_size = 32000
-    # print("Set dataset length and vocab size")
+    training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
+    print("Read training data")
 
+    tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
+    print("Encoded training data")
+    # print(list(tokens)[:100])
 
-    # training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
-    # print("Read training data")
+    # Variable declaration (params for tokenizer class)
+    dataset_length = len(tokens)//1000 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
+    # TODO: When ready, change vocab size to 32000 for final tokenizer training
+    vocab_size = 1000
+    print("Set dataset length and vocab size")
 
-    # tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
-    # print("Encoded training data")
-    # # print(list(tokens)[:100])
+    tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
+    print("Initialized tokenizer")
 
-    # tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
-    # print("Initialized tokenizer")
+    ids = tokenizer.make_merges(tokens, dataset_length) # calls make_merges function from inside tokenizer class and passes tokens
+    # print("Merged tokens")
 
-    # ids = tokenizer.make_merges(tokens, dataset_length) # calls make_merges function from inside tokenizer class and passes tokens
-    # # print("Merged tokens")
+    # printing stats about the tokens for comparison
+    print("Original tokens length:", len(tokens[:dataset_length]))
+    print("Final ids length:", len(ids))
+    print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
 
-    # # printing stats about the tokens for comparison
-    # print("Original tokens length:", len(tokens[:dataset_length]))
-    # print("Final ids length:", len(ids))
-    # print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
+    with open("artifacts/tokenizer.pkl", "wb") as f:
+        pickle.dump(tokenizer, f) # turning the tokenizer object into a pickle file
 
-    # with open("artifacts/tokenizer.pkl", "wb") as f:
-    #     pickle.dump(tokenizer, f) # turning the tokenizer object into a pickle file
-
-    # # with open('artifacts/tokenizer.pkl', 'rb') as f:
-    # #     tokenizer = pickle.load(f) # loading the tokenizer object from the pickle file
+    # with open('artifacts/tokenizer.pkl', 'rb') as f:
+    #     tokenizer = pickle.load(f) # loading the tokenizer object from the pickle file
