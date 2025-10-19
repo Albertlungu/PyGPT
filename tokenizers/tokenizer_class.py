@@ -51,6 +51,17 @@ class BPETokenizer:
         self.vocab = {idx: bytes([idx]) for idx in range(256)}
         for (p0,p1), idx in self.merges.items():
             self.vocab[idx] = self.vocab[p0] + self.vocab[p1]
+        self._ensure_vocab()
+
+    def _rebuild_vocab(self):
+        vocab = {idx: bytes([idx]) for idx in range(self.base_vocab_size)}
+        for (p0, p1), idx in sorted(self.merges.items(), key=lambda item: item[1]):
+            vocab[idx] = vocab[p0] + vocab[p1]
+        self.vocab = vocab
+
+    def _ensure_vocab(self):
+        if any(idx not in self.vocab for idx in self.merges.values()):
+            self._rebuild_vocab()
 
     def get_stats(self, input):
         """
@@ -113,18 +124,21 @@ class BPETokenizer:
             # print(f"merging {pair} into a new token: {idx}")
             input = self.merge(input[:dataset_length], pair, idx) # merging the most repeated pair into one token
             merges[pair] = idx
+            self.vocab[idx] = self.vocab[pair[0]] + self.vocab[pair[1]]
         self.merges = merges
+        self._ensure_vocab()
         return input
 
-    def decode(self, ids):
+    def decode_from_ids(self, ids):
         """
         Given a list of ids, returns the corresponding text.
         """
+        self._ensure_vocab()
         tokens = b"".join(self.vocab[idx] for idx in ids)
         text = tokens.decode("utf-8")
         return text
 
-    def encode(self, text):
+    def encode_to_ids(self, text):
         """
         Given a string of text, returns the corresponding list of ids.
         """
