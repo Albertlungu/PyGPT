@@ -33,6 +33,12 @@ class EmbeddingLayer:
 
         self.embeddings = np.random.randn(self.vocab_size, self.embedding_dim) * np.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
+        self.positional_encodings = self._create_positional_encoding() # using the function that will be declared later to get the positional encoding of a certain word
+
+        self.last_input_ids = None # for future backpropagation, storing the last input ID
+
+        self.encoding_gradient = np.zeros_like(self.embeddings) # for future backpropagation, storing the gradient of the encoding
+
 
 def main():
 
