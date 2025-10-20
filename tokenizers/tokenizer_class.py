@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # Variable declaration (params for tokenizer class)
     dataset_length = len(tokens)//500 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 2000
+    vocab_size = 5000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
