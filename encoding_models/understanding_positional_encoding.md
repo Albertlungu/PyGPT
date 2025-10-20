@@ -63,7 +63,6 @@ Where:
     | 4   | 1            | 0              | 1                         | 1             |
     | 5   | 9            | 13             | -4                        | 16            |
 
-    Sum of squared errors: 1 + 1 + 1 + 1 + 16 = 20  
-    Mean Squared Error (MSE): 20 / 5 = 4
+    Mean Squared Error (MSE): $$MSE = \frac{1 + 1 + 1 + 1 + 16}{5} = 4$$
 
     The MSE of 4 shows that, on average, the squared prediction error per day is 4 units. The larger mistake on Day 5 has a much bigger effect on the total loss, highlighting how MSE penalizes larger mistakes more for model training.
