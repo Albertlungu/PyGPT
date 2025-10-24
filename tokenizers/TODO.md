@@ -1,8 +1,0 @@
-- [x] Run code on desktop
-    - [x] turn .bz2 file into .xml
-    - [x] write .xml to all_wiki_text.txt
-    - [x] make sure it runs without errors
-- [ ] Add a decoding function to BPETokenizer
-- [ ] Save the decoded tokens into another file
-    - [ ] The tokens should not be the utf-8-encoded bytes, but should be actual, human-readable text
-    - This is because the tokens will be used to train LLM

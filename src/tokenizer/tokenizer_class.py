@@ -172,7 +172,7 @@ if __name__ == "__main__":
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
-    training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
+    training_data = open("training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
     print("Read training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
