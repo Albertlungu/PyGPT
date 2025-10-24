@@ -1,9 +1,9 @@
 # What's next?
-[x] - Make sure there are no current filepath errors 
+- [x] Make sure there are no current filepath errors 
 
-[x] - Split the encoding class into positional and embeddings
+- [x] Split the encoding class into positional and embeddings
 
-[ ] - Next up is making the transformer block 
+- [ ] Next up is making the transformer block 
 - Use the following sources:
   - [Transformers from scratch](https://peterbloem.nl/blog/transformers)
   - [Attention Is All You Need](https://arxiv.org/pdf/1706.03762)
