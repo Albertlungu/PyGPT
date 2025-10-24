@@ -143,7 +143,7 @@ class BPETokenizer:
         self._ensure_vocab()
         return input
 
-    def decode_from_ids(self, ids):
+    def decode(self, ids):
         """
         Given a list of ids, returns the corresponding text.
         """
@@ -152,7 +152,7 @@ class BPETokenizer:
         text = tokens.decode("utf-8")
         return text
 
-    def encode_to_ids(self, text):
+    def encode(self, text):
         """
         Given a string of text, returns the corresponding list of ids.
         """

@@ -10,7 +10,7 @@ This file is just to help me understand positional encoding and to remind myself
 
 *[See this website for more details](https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/)*
 
-**What is positional encoding?**
+# What is positional encoding?
 - Positional encoding is a way of representing the position of an object in the input sequence in a way that the model can understand and use both its meaning and its context.
     - This is necessary because the order of words in a sentence matters.
 - For future reference, when I refer to dimension, it means the length of a vector
@@ -42,13 +42,14 @@ Where:
 𝑖: Used for mapping to column indices 0 ≤ 𝑖 <𝑑/2, with a single value of 𝑖 maps to both sine and cosine functions
 - This last one is in between 0 and d/2 because the first half of the output is the sin values and the second half is the cos values
 
-**Definition of gradient:**
+
+**Gradient:**
 - The direction in which the vector points at the steepest location of a function
     - Remember MHF4U!!! - calc 
     $$\text{max}(f'(x))$$
 
 
-**Loss function**:
+# Loss function:
 - The loss function is the difference between the predicted output and the true output
     - Often calculated with something such as MSE (mean square error)
     $$MSE = \frac{1}{n} \sum_{i=1}^n (y_i - \hat{y}_i)^2$$
@@ -66,3 +67,10 @@ Where:
     Mean Squared Error (MSE): $$MSE = \frac{1 + 1 + 1 + 1 + 16}{5} = 4$$
 
     The MSE of 4 shows that, on average, the squared prediction error per day is 4 units. The larger mistake on Day 5 has a much bigger effect on the total loss, highlighting how MSE penalizes larger mistakes more for model training.
+
+
+# What's the difference between positional encodings and embeddings?
+**Embeddings**: represent the meaning of a word using a vector
+- Capture relationships between words such as *King* and *Queen*
+  
+**Positional Embeddings**: defined above 😭
