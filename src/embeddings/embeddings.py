@@ -3,7 +3,8 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xml.etree.ElementTree as ET
-from tokenizers.tokenizer_class import BPETokenizer
+from tokenizer.tokenizer_class import BPETokenizer
+from positional_encoding import PositionalEncoding
 import re
 from tqdm import tqdm
 import pickle
@@ -34,41 +35,13 @@ class EmbeddingLayer:
 
         self.embeddings = np.random.randn(self.vocab_size, self.embedding_dim) * np.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
-        self.positional_encodings = self._create_positional_encoding(n) # using the function that will be declared later to get the positional encoding of a certain word
+        self.positional_encoding_class = PositionalEncoding(self.embedding_dim, self.max_seq_length)
+
+        self.positional_encodings = self.positional_encoding_class._create_positional_encoding(n) # using the function that will be declared later to get the positional encoding of a certain word
 
         self.last_input_ids = None # for future backpropagation, storing the last input ID
 
         self.encoding_gradient = np.zeros_like(self.embeddings) # for future backpropagation, storing the gradient of the encoding
-
-    def _create_positional_encoding(self, n = 10000):
-        # making variables in accordance to understanding_positional_encoding.md
-        """
-        Creates positional encoding for the given embedding layer.
-
-        Parameters:
-            n (int, optional): the maximum sequence length. Defaults to 10000.
-
-        Returns:
-            P (numpy.array): the positional encoding function, that describes the position of word in a given input
-        """
-        # L = self.max_seq_length # length of the embeddings inside the embedding layer
-        # d = self.embedding_dim # dimension of the embedding (amount of # in the vectors)
-        # P = np.zeros((L, d)) # positional encoding function
-        # for k in range(L):
-        #     for i in np.arange(int(d/2)):
-        #         denominator = np.power(n, 2*i/d)
-        #         P[k, 2*i] = np.sin(k/denominator)
-        #         P[k, 2*i +1] = np.cos(k/denominator)
-        # return P
-        
-        L, d = self.max_seq_length, self.embedding_dim
-        pos = np.arrange(L)[:, np.newaxis]
-        i = np.arrange(d)[np.newaxis, :]
-        angle_rates = 1 / np.power(n, (2 * (i//2)) / d)
-        P = pos * angle_rates
-        P[:, 0::2] = np.sin(P[:, 0::2])
-        P[:, 1::2] = np.cos(P[:, 1::2])
-        return P
 
     def forward(self, token_ids):
         """
@@ -157,35 +130,39 @@ class EmbeddingLayer:
 
 
 def main():
-    print("="*60)
-    print("LOADING TOKENIZER")
-    print("="*60)
+    # print("="*60)
+    # print("LOADING TOKENIZER")
+    # print("="*60)
     
     with open('artifacts/tokenizer.pkl', 'rb') as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
     
-    n = 10000
-    embedding_dim = 256
-    embedding_layer = EmbeddingLayer(vocab_size=tokenizer.vocab_size, embedding_dim=embedding_dim, n=n)
+    print("="*60)
+    print("Main ran with no errors")
+    print("="*60)
     
-    # filepath = "artifacts/embeddings.pkl"
-    # embedding_layer.save(filepath)
-    # print("saved encoding model to path: ", filepath)
+    # n = 10000
+    # embedding_dim = 256
+    # embedding_layer = EmbeddingLayer(vocab_size=tokenizer.vocab_size, embedding_dim=embedding_dim, n=n)
+    
+    # # filepath = "artifacts/embeddings.pkl"
+    # # embedding_layer.save(filepath)
+    # # print("saved encoding model to path: ", filepath)
 
 
-    sample_text = "Hello world"
-    for i in tokenizer.encode(sample_text):
-        print(tokenizer.decode([i]))
+    # sample_text = "Hello world"
+    # for i in tokenizer.encode(sample_text):
+    #     print(tokenizer.decode([i]))
     
-    embeddings = embedding_layer.embeddings[:2, :10]
-    print("What the embeddings look like (definition and meaning of word as a vector): ", embeddings)
-    pos_enc = embedding_layer.positional_encodings[:2, :10]
-    print("What positional encodings look like (vector describing position of word in sentence): ", pos_enc)
-    fwd = embedding_layer.forward(tokenizer.encode(sample_text))
-    print("What the forward function returns - a numpy array of embeddings/definitions of words: ", fwd[:2, :10])
+    # embeddings = embedding_layer.embeddings[:2, :10]
+    # print("What the embeddings look like (definition and meaning of word as a vector): ", embeddings)
+    # pos_enc = embedding_layer.positional_encodings[:2, :10]
+    # print("What positional encodings look like (vector describing position of word in sentence): ", pos_enc)
+    # fwd = embedding_layer.forward(tokenizer.encode(sample_text))
+    # print("What the forward function returns - a numpy array of embeddings/definitions of words: ", fwd[:2, :10])
     
-    print("What the backward function of a forward pass looks like: ", embedding_layer.backward(fwd)[:2])
+    # print("What the backward function of a forward pass looks like: ", embedding_layer.backward(fwd)[:2])
 
 
 if __name__ == '__main__':

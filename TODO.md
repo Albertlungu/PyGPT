@@ -7,8 +7,8 @@ body {
 
 
 # What's next?
-[ ] Make sure there are no current filepath errors 
-[ ] Split the encoding class into positional and embeddings
+[x] Make sure there are no current filepath errors 
+[x] Split the encoding class into positional and embeddings
 [ ] Next up is making the transformer block 
 - Use the following sources:
   - [Transformers from scratch](https://peterbloem.nl/blog/transformers)
