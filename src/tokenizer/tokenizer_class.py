@@ -38,13 +38,15 @@ def extract_wiki_text(xml_path, output_path):
                 f.write(cleaned + "\n")
 
 class BPETokenizer:
-    def __init__(self, vocab_size = 32000):
+    default_vocab_size = 5000
+
+    def __init__(self, vocab_size):
         """
         Initializes a BPETokenizer object.
         If input is None, vocab size is set to 1000.
             OUTDATED --> No longer uses input, instead, uses harcoded value of 32k vocab size
         """
-        self.vocab_size = vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
+        self.vocab_size = vocab_size or self.default_vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
         self.base_vocab_size = 256
         self.merges = {} # initializing merges dictionary
         self.vocab = {idx: bytes([idx]) for idx in range(256)}

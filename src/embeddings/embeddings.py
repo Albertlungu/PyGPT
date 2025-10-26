@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xml.etree.ElementTree as ET
 from tokenizer.tokenizer_class import BPETokenizer
-from positional_encoding import PositionalEncoding
+from src.embeddings.positional_encoding import PositionalEncoding
 import re
 from tqdm import tqdm
 import pickle
@@ -19,7 +19,10 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 """
 
 class EmbeddingLayer:
-    def __init__(self, vocab_size, embedding_dim, max_seq_length = 512, n = 10000):
+
+    default_embedding_dim = 256
+    
+    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 512, n = 10000):
         """
         Initializes an EmbeddingLayer object.
 
@@ -28,8 +31,8 @@ class EmbeddingLayer:
             embedding_dim (int): the size of the embedding dimension
             max_seq_length (int, optional): the maximum sequence length. Defaults to 512.
         """
-        self.vocab_size = vocab_size # taken from the tokenizer.pkl inside of artifacts/tokenizer.pkl or from inside tokenizers/tokenizer_class.py
-        self.embedding_dim = embedding_dim
+        self.vocab_size = vocab_size or BPETokenizer.default_vocab_size# taken from the tokenizer.pkl inside of artifacts/tokenizer.pkl or from inside tokenizers/tokenizer_class.py
+        self.embedding_dim = embedding_dim or self.default_embedding_dim
         self.max_seq_length = max_seq_length
         self.n = n
 
@@ -48,32 +51,47 @@ class EmbeddingLayer:
         Forward pass to convert input_ids to embeddings
 
         Args:
-            token_ids (array): array containing input IDs of query
+            token_ids (list or array): list or array of sequences of token IDs (can be 1D or 2D with variable lengths)
         
         Return:
             output (array): embeddings that have positional encoding information inside of them (gradient)
         """
-        token_ids = np.array((token_ids))
-        if token_ids.ndim == 1: # checks if token_ids array is 1 or 2 dimensions (1D vs 2D array => [x,y,z] v.s. [[x,y],[a,b]])
-            token_ids = token_ids[np.newaxis, :]
-            squeeze_dim = True # To remember to remove the second dimension from the token_ids at the end
+        # Ensure token_ids is a list of sequences
+        if isinstance(token_ids, np.ndarray) and token_ids.ndim == 2:
+            sequences = [list(seq) for seq in token_ids]
+        elif isinstance(token_ids, (list, tuple)):
+            # Check if it's a list of ints or list of lists
+            if len(token_ids) == 0:
+                sequences = []
+            elif isinstance(token_ids[0], (list, tuple, np.ndarray)):
+                sequences = [list(seq) for seq in token_ids]
+            else:
+                sequences = [list(token_ids)]
         else:
-            squeeze_dim = False # no need to remove second dimension
+            sequences = [list(token_ids)]
 
-        batch_size, seq_len = token_ids.shape # gets dimensions of input, e.g. if token_ids shape is (2,10), batch_size=2 and seq_length=10
-        self.last_input_ids = token_ids # saves this for backward pass later
+        batch_size = len(sequences)
+        max_len = max(len(seq) for seq in sequences) if sequences else 0
+        max_len = min(max_len, self.max_seq_length)  # limit to max_seq_length
 
-        token_embeddings = self.embeddings[token_ids] # replaces each ID with its corresponding vector from inside embeddings
-        token_embeddings = token_embeddings * np.sqrt(self.embedding_dim) # balancing the size of positional encodings with embeddings
+        # Initialize padded array with zeros (assumed padding token id = 0)
+        padded_token_ids = np.zeros((batch_size, max_len), dtype=int)
 
-        pos_enc = self.positional_encodings[:seq_len, :] # slicing positional encodings to match the actual sequence length
+        for i, seq in enumerate(sequences):
+            length = min(len(seq), max_len)
+            padded_token_ids[i, :length] = seq[:length]
 
-        gradient = token_embeddings + pos_enc[np.newaxis, :, :] # ig "intertwining" positional encodings wth token embeddings
-        
-        if squeeze_dim:
-            gradient = gradient.squeeze(0)
-        
-        return gradient
+        self.last_input_ids = padded_token_ids
+
+        token_embeddings = self.embeddings[padded_token_ids]  # shape (batch_size, max_len, embedding_dim)
+        token_embeddings = token_embeddings * np.sqrt(self.embedding_dim)  # scale embeddings
+
+        pos_enc = self.positional_encodings[:max_len, :]  # shape (max_len, embedding_dim)
+
+        # Add positional encoding to each sequence
+        output = token_embeddings + pos_enc[np.newaxis, :, :]
+
+        return output  # shape (batch_size, max_len, embedding_dim)
 
     def backward(self, gradient):
         """
@@ -93,7 +111,7 @@ class EmbeddingLayer:
                 token_id = self.last_input_ids[b,s]
                 self.encoding_gradient[token_id] += gradient[b,s]
 
-        return self.encoding_gradient[token_id]
+        return self.encoding_gradient
     
     def update(self, learning_rate):
         """

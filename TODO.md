@@ -3,7 +3,9 @@
 
 - [x] Split the encoding class into positional and embeddings
 
-- [ ] Next up is making the transformer block 
+- [x] Make FFN model
+- [ ] Make attention model
+- [ ] Make the transformer block
 - Use the following sources:
   - [Transformers from scratch](https://peterbloem.nl/blog/transformers)
   - [Attention Is All You Need](https://arxiv.org/pdf/1706.03762)
