@@ -29,9 +29,26 @@ class FeedForward():
 
 
     def GELU(self, x):
+        """
+        GELU activation function
+
+        Args:
+            x (array): array of vectors to go through activation function (3D matrix)
+
+        Returns:
+            array: activated layer from hidden layer
+        """
         return 0.5 * x *(1+np.tanh(np.sqrt(2/np.pi) * (x + 0.044715 * x**3)))
     
     def ReLU(self, x):
+        """Basically GELU but simpler
+
+        Args:
+            x (array): array of vectors to go through activation function (3D matrix)
+
+        Returns:
+            array: activated layer from hidden layer
+        """
         return np.maximum(0, x)
     
     def forward(self, x):
@@ -102,7 +119,8 @@ def main():
     token_ids = [tokenizer.encode(text) for text in sample_texts]
 
     ff_class = FeedForward(embedding_layer, token_ids)
-    print("Output shape: ", np.shape(ff_class.forward(ff_class.ff_input)))
+    # print(ff_class.hidden_layer)
+#     print("Output shape: ", np.shape(ff_class.forward(ff_class.ff_input)))
 
 
 if __name__ == "__main__":
