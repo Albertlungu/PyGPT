@@ -70,15 +70,15 @@ class EmbeddingLayer:
         else:
             sequences = [list(token_ids)]
 
-        batch_size = len(sequences)
-        max_len = max(len(seq) for seq in sequences) if sequences else 0
-        max_len = min(max_len, self.max_seq_length)  # limit to max_seq_length
+        self.batch_size = len(sequences)
+        self.max_len = max(len(seq) for seq in sequences) if sequences else 0
+        self.max_len = min(self.max_len, self.max_seq_length)  # limit to max_seq_length
 
         # Initialize padded array with zeros (assumed padding token id = 0)
-        padded_token_ids = np.zeros((batch_size, max_len), dtype=int)
+        padded_token_ids = np.zeros((self.batch_size, self.max_len), dtype=int)
 
         for i, seq in enumerate(sequences):
-            length = min(len(seq), max_len)
+            length = min(len(seq), self.max_len)
             padded_token_ids[i, :length] = seq[:length]
 
         self.last_input_ids = padded_token_ids
@@ -86,7 +86,7 @@ class EmbeddingLayer:
         token_embeddings = self.embeddings[padded_token_ids]  # shape (batch_size, max_len, embedding_dim)
         token_embeddings = token_embeddings * np.sqrt(self.embedding_dim)  # scale embeddings
 
-        pos_enc = self.positional_encodings[:max_len, :]  # shape (max_len, embedding_dim)
+        pos_enc = self.positional_encodings[:self.max_len, :]  # shape (max_len, embedding_dim)
 
         # Add positional encoding to each sequence
         output = token_embeddings + pos_enc[np.newaxis, :, :]

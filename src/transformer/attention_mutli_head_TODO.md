@@ -29,28 +29,28 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 - [ ] **query_weights** - Weight matrix for creating queries
   - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize: `np.random.randn(embedding_dimension, embedding_dimension) * 0.02`
+  - [ ] Initialize with small random values using normal distribution scaled by 0.02
   - [ ] **What it does**: Transforms input into query vectors (what each token is looking for)
   
 - [ ] **key_weights** - Weight matrix for creating keys
   - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize: `np.random.randn(embedding_dimension, embedding_dimension) * 0.02`
+  - [ ] Initialize with small random values using normal distribution scaled by 0.02
   - [ ] **What it does**: Transforms input into key vectors (what each token offers)
   
 - [ ] **value_weights** - Weight matrix for creating values
   - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize: `np.random.randn(embedding_dimension, embedding_dimension) * 0.02`
+  - [ ] Initialize with small random values using normal distribution scaled by 0.02
   - [ ] **What it does**: Transforms input into value vectors (the actual information to be passed)
   
 - [ ] **output_weights** - Weight matrix for final projection
   - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize: `np.random.randn(embedding_dimension, embedding_dimension) * 0.02`
+  - [ ] Initialize with small random values using normal distribution scaled by 0.02
   - [ ] **What it does**: Combines information from all attention heads
 
 - [ ] **number_of_heads** - Number of attention heads (hyperparameter)
   - [ ] Typical values: 8, 12, or 16
   - [ ] Must divide embedding_dimension evenly
-  - [ ] Calculate: `head_dimension = embedding_dimension // number_of_heads`
+  - [ ] Calculate head_dimension by dividing embedding_dimension by number_of_heads
   - [ ] **What it does**: Allows the model to attend to different aspects simultaneously
 
 ### Variable explanations:
@@ -63,7 +63,6 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 ### 1. Softmax Function
 
 - [ ] Implement numerically stable softmax
-- [ ] Formula: `exp(x - max(x)) / sum(exp(x - max(x)))`
 - [ ] Apply along last dimension (axis=-1)
 - [ ] Input shape: `(batch, number_of_heads, seq_len, seq_len)`
 - [ ] Output shape: Same as input
@@ -71,10 +70,10 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 **Implementation checklist**:
 ```
-- [ ] Subtract max for numerical stability: shifted_scores = scores - np.max(scores, axis=-1, keepdims=True)
-- [ ] Compute exponentials: exponentials = np.exp(shifted_scores)
-- [ ] Sum along last dimension: sum_exponentials = np.sum(exponentials, axis=-1, keepdims=True)
-- [ ] Divide: return exponentials / sum_exponentials
+- [ ] Subtract maximum value from scores for numerical stability
+- [ ] Compute exponentials of the shifted values
+- [ ] Sum the exponentials along the last dimension
+- [ ] Divide exponentials by their sum
 ```
 
 **What it does**: Converts attention scores into probabilities (0 to 1, summing to 1)
@@ -89,9 +88,9 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 **Implementation checklist**:
 ```
-- [ ] Get batch_size, seq_len from input.shape
-- [ ] Reshape to: (batch, seq_len, number_of_heads, head_dimension)
-- [ ] Transpose to: (batch, number_of_heads, seq_len, head_dimension)
+- [ ] Get batch_size and seq_len from input shape
+- [ ] Reshape to separate the heads dimension: (batch, seq_len, number_of_heads, head_dimension)
+- [ ] Transpose to move heads dimension: (batch, number_of_heads, seq_len, head_dimension)
 - [ ] Return transposed result
 ```
 
@@ -111,8 +110,8 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 **Implementation checklist**:
 ```
-- [ ] Transpose to: (batch, seq_len, number_of_heads, head_dimension)
-- [ ] Reshape to: (batch, seq_len, embedding_dimension)
+- [ ] Transpose to move heads dimension back: (batch, seq_len, number_of_heads, head_dimension)
+- [ ] Reshape to merge heads: (batch, seq_len, embedding_dimension)
 - [ ] Return reshaped result
 ```
 
@@ -124,15 +123,15 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 1: Create Query, Key, Value Matrices
 
-- [ ] Compute Query: `queries = input @ query_weights`
+- [ ] Compute Query by matrix multiplying input with query_weights
   - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
   - [ ] **What it is**: What each token is looking for
   
-- [ ] Compute Key: `keys = input @ key_weights`
+- [ ] Compute Key by matrix multiplying input with key_weights
   - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
   - [ ] **What it is**: What each token offers for matching
   
-- [ ] Compute Value: `values = input @ value_weights`
+- [ ] Compute Value by matrix multiplying input with value_weights
   - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
   - [ ] **What it is**: The actual information to be passed between tokens
 
@@ -147,13 +146,13 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 2: Split into Multiple Heads
 
-- [ ] Split queries: `queries_multihead = split_heads(queries)`
+- [ ] Split queries using the split_heads function
   - [ ] Verify shape: `(batch, number_of_heads, seq_len, head_dimension)`
   
-- [ ] Split keys: `keys_multihead = split_heads(keys)`
+- [ ] Split keys using the split_heads function
   - [ ] Verify shape: `(batch, number_of_heads, seq_len, head_dimension)`
   
-- [ ] Split values: `values_multihead = split_heads(values)`
+- [ ] Split values using the split_heads function
   - [ ] Verify shape: `(batch, number_of_heads, seq_len, head_dimension)`
 
 **What's happening**: Each head will now process the data independently, learning different attention patterns.
@@ -165,8 +164,8 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 3: Compute Attention Scores
 
-- [ ] Matrix multiply: `attention_scores = queries_multihead @ keys_multihead^T`
-  - [ ] Transpose last two dims of keys: Use `keys_multihead.transpose(0, 1, 3, 2)`
+- [ ] Matrix multiply queries with transposed keys
+  - [ ] Transpose the last two dimensions of keys
   - [ ] Result shape: `(batch, number_of_heads, seq_len, seq_len)`
   
 - [ ] Verify the attention score matrix:
@@ -183,7 +182,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 4: Scale the Scores
 
-- [ ] Divide by sqrt(head_dimension): `scaled_scores = attention_scores / np.sqrt(head_dimension)`
+- [ ] Divide attention scores by the square root of head_dimension
 - [ ] Shape stays: `(batch, number_of_heads, seq_len, seq_len)`
 
 **Why**: Prevents dot products from becoming too large. Large values make gradients very small after softmax, slowing training.
@@ -198,12 +197,11 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 **Skip this step if building encoder-only transformer. Do this for GPT-style models.**
 
 - [ ] Create causal mask of shape: `(seq_len, seq_len)`
-  - [ ] Lower triangular matrix of 1s: `np.tril(np.ones((seq_len, seq_len)))`
+  - [ ] Create a lower triangular matrix of ones
   - [ ] **What it is**: A mask that prevents tokens from seeing future tokens
   
 - [ ] Apply mask to scaled_scores:
-  - [ ] Where mask is 0, set scores to -1e9 (very negative number)
-  - [ ] `masked_scores = np.where(causal_mask == 0, -1e9, scaled_scores)`
+  - [ ] Where mask is 0, set scores to a very large negative number (like -1e9)
 
 **What's happening**: Preventing tokens from "cheating" by looking at future tokens during training.
 
@@ -215,7 +213,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 6: Apply Softmax
 
-- [ ] Apply softmax: `attention_weights = softmax(scaled_scores)` or `softmax(masked_scores)`
+- [ ] Apply softmax function to scaled_scores (or masked_scores if using masking)
 - [ ] Shape: `(batch, number_of_heads, seq_len, seq_len)`
 - [ ] Verify: Each row sums to approximately 1.0
 
@@ -229,7 +227,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 7: Apply Attention to Values
 
-- [ ] Multiply: `attention_output = attention_weights @ values_multihead`
+- [ ] Matrix multiply attention_weights with values_multihead
 - [ ] Shape: `(batch, number_of_heads, seq_len, head_dimension)`
 
 **What's happening**: Using the attention weights to create a weighted sum of values. Each token gathers information from others based on attention weights.
@@ -241,7 +239,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 8: Concatenate Heads
 
-- [ ] Merge heads: `concatenated_heads = concatenate_heads(attention_output)`
+- [ ] Merge heads using the concatenate_heads function
 - [ ] Verify shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Combining all attention heads back into a single representation.
@@ -253,7 +251,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 9: Output Projection
 
-- [ ] Final projection: `final_output = concatenated_heads @ output_weights`
+- [ ] Matrix multiply concatenated_heads with output_weights
 - [ ] Final shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Mixing information from different heads through a learned transformation.
@@ -296,7 +294,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Basic Functionality Tests:
 
-- [ ] Create test input: `test_input = np.random.randn(2, 10, 64)`
+- [ ] Create test input with random values
   - [ ] batch_size = 2
   - [ ] sequence_length = 10
   - [ ] embedding_dimension = 64
@@ -306,7 +304,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
   - [ ] number_of_heads = 4
   - [ ] Verify head_dimension = 64/4 = 16
 
-- [ ] Run forward pass: `output = attention.forward(test_input)`
+- [ ] Run forward pass
 
 - [ ] Verify output shape: Should be `(2, 10, 64)` - same as input
 
@@ -323,13 +321,12 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 ### Value Tests:
 
 - [ ] Check for errors:
-  - [ ] No NaN values: `np.isnan(output).any()` should be False
-  - [ ] No Inf values: `np.isinf(output).any()` should be False
+  - [ ] No NaN values in output
+  - [ ] No Inf values in output
   
 - [ ] Attention weights check:
   - [ ] All values between 0 and 1
   - [ ] Each row sums to approximately 1.0
-  - [ ] Use: `np.allclose(attention_weights.sum(axis=-1), 1.0)`
 
 ---
 
@@ -337,7 +334,7 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Issue: Shape mismatch in matrix multiplication
 - [ ] Check queries, keys, values have correct shapes after projection
-- [ ] Verify transpose is on correct axes: `(0, 1, 3, 2)` for 4D tensor
+- [ ] Verify transpose is on correct axes for 4D tensor
 - [ ] Print shapes at every step
 
 ### Issue: Softmax returns NaN
