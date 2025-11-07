@@ -4,7 +4,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xml.etree.ElementTree as ET
 from tokenizer.tokenizer_class import BPETokenizer
-from src.embeddings.positional_encoding import PositionalEncoding
+from .positional_encoding import PositionalEncoding
 import re
 from tqdm import tqdm
 import pickle

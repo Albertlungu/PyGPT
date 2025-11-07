@@ -29,25 +29,25 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Checklist - Initialization:
 
-- [ ] **query_weights** - Weight matrix for creating queries
-  - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize with small random values using normal distribution scaled by 0.02
-  - [ ] **What it does**: Transforms input into query vectors (what each token is looking for)
+- [x] **query_weights** - Weight matrix for creating queries
+  - [x] Shape: `(embedding_dimension, embedding_dimension)`
+  - [x] Initialize with small random values using normal distribution scaled by 0.02
+  - [x] **What it does**: Transforms input into query vectors (what each token is looking for)
   
-- [ ] **key_weights** - Weight matrix for creating keys
-  - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize with small random values using normal distribution scaled by 0.02
-  - [ ] **What it does**: Transforms input into key vectors (what each token offers)
+- [x] **key_weights** - Weight matrix for creating keys
+  - [x] Shape: `(embedding_dimension, embedding_dimension)`
+  - [x] Initialize with small random values using normal distribution scaled by 0.02
+  - [x] **What it does**: Transforms input into key vectors (what each token offers)
   
-- [ ] **value_weights** - Weight matrix for creating values
-  - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize with small random values using normal distribution scaled by 0.02
-  - [ ] **What it does**: Transforms input into value vectors (the actual information to be passed)
+- [x] **value_weights** - Weight matrix for creating values
+  - [x] Shape: `(embedding_dimension, embedding_dimension)`
+  - [x] Initialize with small random values using normal distribution scaled by 0.02
+  - [x] **What it does**: Transforms input into value vectors (the actual information to be passed)
   
-- [ ] **output_weights** - Weight matrix for final projection
-  - [ ] Shape: `(embedding_dimension, embedding_dimension)`
-  - [ ] Initialize with small random values using normal distribution scaled by 0.02
-  - [ ] **What it does**: Final transformation of the attention output
+- [x] **output_weights** - Weight matrix for final projection
+  - [x] Shape: `(embedding_dimension, embedding_dimension)`
+  - [x] Initialize with small random values using normal distribution scaled by 0.02
+  - [x] **What it does**: Final transformation of the attention output
 
 ---
 
@@ -55,19 +55,19 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Softmax Function
 
-- [ ] Implement numerically stable softmax
-- [ ] Apply along last dimension (axis=-1)
-- [ ] Input shape: `(batch, seq_len, seq_len)`
-- [ ] Output shape: Same as input
-- [ ] Verify: Each row sums to 1.0
+- [x] Implement numerically stable softmax
+- [x] Apply along last dimension (axis=-1)
+- [x] Input shape: `(batch, seq_len, seq_len)`
+- [x] Output shape: Same as input
+- [x] Verify: Each row sums to 1.0
 
 **Implementation checklist**:
-```
-- [ ] Subtract maximum value from scores for numerical stability
-- [ ] Compute exponentials of the shifted values
-- [ ] Sum the exponentials along the last dimension
-- [ ] Divide exponentials by their sum
-```
+
+- [x] Subtract maximum value from scores for numerical stability
+- [x] Compute exponentials of the shifted values
+- [x] Sum the exponentials along the last dimension
+- [x] Divide exponentials by their sum
+
 
 **What it does**: Converts attention scores into probabilities (0 to 1, summing to 1)
 
@@ -77,17 +77,17 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 1: Create Query, Key, Value Matrices
 
-- [ ] Compute Query by matrix multiplying input with query_weights
-  - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
-  - [ ] **What it is**: What each token is looking for
+- [x] Compute Query by matrix multiplying input with query_weights
+  - [x] Verify shape: `(batch_size, seq_len, embedding_dimension)`
+  - [x] **What it is**: What each token is looking for
   
-- [ ] Compute Key by matrix multiplying input with key_weights
-  - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
-  - [ ] **What it is**: What each token offers for matching
+- [x] Compute Key by matrix multiplying input with key_weights
+  - [x] Verify shape: `(batch_size, seq_len, embedding_dimension)`
+  - [x] **What it is**: What each token offers for matching
   
-- [ ] Compute Value by matrix multiplying input with value_weights
-  - [ ] Verify shape: `(batch_size, seq_len, embedding_dimension)`
-  - [ ] **What it is**: The actual information to be passed between tokens
+- [x] Compute Value by matrix multiplying input with value_weights
+  - [x] Verify shape: `(batch_size, seq_len, embedding_dimension)`
+  - [x] **What it is**: The actual information to be passed between tokens
 
 **What's happening**: Creating three different representations of the input, each with a different role in the attention mechanism.
 
@@ -100,13 +100,13 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 2: Compute Attention Scores
 
-- [ ] Matrix multiply queries with transposed keys
-  - [ ] Transpose the last two dimensions of keys
-  - [ ] Result shape: `(batch, seq_len, seq_len)`
+- [x] Matrix multiply queries with transposed keys
+  - [x] Transpose the last two dimensions of keys
+  - [x] Result shape: `(batch, seq_len, seq_len)`
   
-- [ ] Verify the attention score matrix:
-  - [ ] Each (i,j) entry represents how much token i should attend to token j
-  - [ ] Scores are currently unnormalized
+- [x] Verify the attention score matrix:
+  - [x] Each (i,j) entry represents how much token i should attend to token j
+  - [x] Scores are currently unnormalized
 
 **What's happening**: Computing similarity between every pair of tokens. High scores mean tokens are related.
 
@@ -117,8 +117,8 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 ### Step 3: Scale the Scores
 
-- [ ] Divide attention scores by the square root of embedding_dimension
-- [ ] Shape stays: `(batch, seq_len, seq_len)`
+- [x] Divide attention scores by the square root of embedding_dimension
+- [x] Shape stays: `(batch, seq_len, seq_len)`
 
 **Why**: Prevents dot products from becoming too large. Large values make gradients very small after softmax, slowing training.
 
@@ -131,12 +131,12 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 **Skip this step if building encoder-only transformer. Do this for GPT-style models.**
 
-- [ ] Create causal mask of shape: `(seq_len, seq_len)`
-  - [ ] Create a lower triangular matrix of ones
-  - [ ] **What it is**: A mask that prevents tokens from seeing future tokens
+- [x] Create causal mask of shape: `(seq_len, seq_len)`
+  - [x] Create a lower triangular matrix of ones
+  - [x] **What it is**: A mask that prevents tokens from seeing future tokens
   
-- [ ] Apply mask to scaled_scores:
-  - [ ] Where mask is 0, set scores to a very large negative number (like -1e9)
+- [x] Apply mask to scaled_scores:
+  - [x] Where mask is 0, set scores to a very large negative number (like -1e9)
 
 **What's happening**: Preventing tokens from "cheating" by looking at future tokens during training.
 
@@ -150,9 +150,9 @@ Token embeddings that encode both semantic meaning and position in the sequence.
 
 $$ \text{Softmax}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)} $$
 
-- [ ] Apply softmax function to scaled_scores (or masked_scores if using masking)
-- [ ] Shape: `(batch, seq_len, seq_len)`
-- [ ] Verify: Each row sums to approximately 1.0
+- [x] Apply softmax function to scaled_scores (or masked_scores if using masking)
+- [x] Shape: `(batch, seq_len, seq_len)`
+- [x] Verify: Each row sums to approximately 1.0
 
 **What's happening**: Converting scores to probability distribution - how much attention each token pays to others.
 
@@ -164,8 +164,8 @@ $$ \text{Softmax}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)} $$
 
 ### Step 6: Apply Attention to Values
 
-- [ ] Matrix multiply attention_weights with values
-- [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] Matrix multiply attention_weights with values
+- [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Using the attention weights to create a weighted sum of values. Each token gathers information from others based on attention weights.
 
@@ -176,8 +176,8 @@ $$ \text{Softmax}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)} $$
 
 ### Step 7: Output Projection
 
-- [ ] Matrix multiply attention_output with output_weights
-- [ ] Final shape: `(batch, seq_len, embedding_dimension)`
+- [x] Matrix multiply attention_output with output_weights
+- [x] Final shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Final transformation of the attention output through a learned projection.
 
@@ -196,12 +196,12 @@ $$ \text{Softmax}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)} $$
 
 ### Implementation Steps:
 
-- [ ] **Step 1**: Implement the softmax helper function first
-- [ ] **Step 2**: Initialize all weight matrices (query, key, value, output)
-- [ ] **Step 3**: Implement the forward pass following Steps 1-7 above
-- [ ] **Step 4**: Test with simple inputs
-- [ ] **Step 5**: Verify attention weights look reasonable (values between 0 and 1, rows sum to 1)
-- [ ] **Step 6**: Debug any shape or value issues before moving forward
+- [x] **Step 1**: Implement the softmax helper function first
+- [x] **Step 2**: Initialize all weight matrices (query, key, value, output)
+- [x] **Step 3**: Implement the forward pass following Steps 1-7 above
+- [x] **Step 4**: Test with simple inputs
+- [x] **Step 5**: Verify attention weights look reasonable (values between 0 and 1, rows sum to 1)
+- [x] **Step 6**: Debug any shape or value issues before moving forward
 
 ---
 
@@ -209,97 +209,14 @@ $$ \text{Softmax}(x_i) = \frac{\exp(x_i)}{\sum_j \exp(x_j)} $$
 
 ### Basic Functionality Tests:
 
-- [ ] Create test input with random values
-  - [ ] batch_size = 2
-  - [ ] sequence_length = 10
-  - [ ] embedding_dimension = 64
+- [x] Create test input with random values
+  - [x] batch_size = 2
+  - [x] sequence_length = 10
+  - [x] embedding_dimension = 64
 
-- [ ] Initialize Attention with:
-  - [ ] embedding_dimension = 64
+- [x] Initialize Attention with:
+  - [x] embedding_dimension = 64
 
-- [ ] Run forward pass
+- [x] Run forward pass
 
-- [ ] Verify output shape: Should be `(2, 10, 64)` - same as input
-
-### Intermediate Shape Tests:
-
-- [ ] After Q, K, V projection: `(2, 10, 64)`
-- [ ] attention_scores: `(2, 10, 10)` where 10×10 is seq_len × seq_len
-- [ ] After softmax (attention_weights): Same shape `(2, 10, 10)`, but each row sums to ~1.0
-- [ ] After applying to values: `(2, 10, 64)`
-- [ ] After output projection: `(2, 10, 64)` ✓
-
-### Value Tests:
-
-- [ ] Check for errors:
-  - [ ] No NaN values in output
-  - [ ] No Inf values in output
-  
-- [ ] Attention weights check:
-  - [ ] All values between 0 and 1
-  - [ ] Each row sums to approximately 1.0
-
----
-
-## Common Issues & Debugging
-
-### Issue: Shape mismatch in matrix multiplication
-- [ ] Check queries, keys, values have correct shapes after projection
-- [ ] Verify transpose is on correct axes for 4D tensor
-- [ ] Print shapes at every step
-
-### Issue: Softmax returns NaN
-- [ ] Check for numerical overflow - use the stable version
-- [ ] Verify you're subtracting max before exponential
-- [ ] Check for Inf values in attention_scores before softmax
-
-### Issue: Attention weights don't sum to 1
-- [ ] Verify softmax is applied on correct axis (axis=-1)
-- [ ] Check keepdims=True in sum operation
-
----
-
-## Example Dimensions
-
-For a typical small transformer:
-- embedding_dimension = 512
-- number_of_heads = 8
-- head_dimension = 512 / 8 = 64
-- batch_size = 32
-- sequence_length = 128
-
-**Complete Flow**:
-- Input: (32, 128, 512)
-- queries, keys, values after projection: (32, 128, 512)
-- After split_heads: (32, 8, 128, 64)
-- attention_scores: (32, 8, 128, 128)
-- attention_weights (after softmax): (32, 8, 128, 128)
-- attention_output: (32, 8, 128, 64)
-- After concatenate: (32, 128, 512)
-- Final output: (32, 128, 512) ✓
-
----
-
-## Glossary of Terms
-
-- **embedding_dimension**: Size of token embeddings (e.g., 512)
-- **number_of_heads**: How many parallel attention mechanisms (e.g., 8)
-- **head_dimension**: Size per head = embedding_dimension ÷ number_of_heads (e.g., 64)
-- **queries**: What each token is looking for
-- **keys**: What each token offers for matching
-- **values**: The actual information to be passed
-- **attention_scores**: Unnormalized similarity scores between tokens
-- **attention_weights**: Normalized probabilities after softmax
-- **attention_output**: Result after applying attention to values
-
----
-
-## Success Criteria
-
-You've successfully built Attention when:
-
-- [ ] Output shape matches input shape
-- [ ] Attention weights are valid probabilities (0-1, sum to 1)
-- [ ] No errors or warnings
-- [ ] Works with different number_of_heads values
-- [ ] Ready to move on to TransformerBlock class!
+- [x] Verify output shape: Should be `(2, 10, 64)` - same as input

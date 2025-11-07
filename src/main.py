@@ -1,48 +1,52 @@
 import numpy as np
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-# import xml.etree.ElementTree as ET
-# import re
-from tqdm import tqdm
 import pickle
 from embeddings.embeddings import EmbeddingLayer
 from transformer.feed_forward import FeedForward
 from transformer.attention import Attention
-from transformer.transformer_block import TransformerBlock
 from tokenizer.tokenizer_class import BPETokenizer
 
-"""To remember for future: distinction between tokens and ids:
-
-    tokens => text encoded into utf-8 bytes. For example, "Hello World" would return <<b'Hello World'>> (tokens)
-
-    ids ==> tokens turned into numbers (the things that I merged in tokenizer_class.py), where each char has a specific id attributed to it. ids = tokenizer.encode_to_ids(input_message) for input_message = 'hello world' will return [104, 542, 298, 620, 108, 100] (list of ids)
-"""
-
 def main():
-    """Hey I'm testin' here!"""
-
+    # Load tokenizer
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
+    # Example texts
     sample_texts = [
-    "Hello World. My name is Albert Lungu",
-    "What is your name?",
-    "I like LLMs",
-]
-    token_ids = [tokenizer.encode(i) for i in sample_texts]
-    
-    embedding_layer = EmbeddingLayer(vocab_size = tokenizer.vocab_size)
-    ffn = FeedForward(embedding_layer, token_ids)
-    
-    print(np.shape(ffn.output))
-    
+        "Hello World. My name is Albert Lungu",
+        "What is your name?",
+        "I like LLMs"
+    ]
 
+    # Convert texts to token ids
+    token_ids_list = [tokenizer.encode(text) for text in sample_texts]
+
+    # Determine max sequence length for padding
+    max_len = max(len(ids) for ids in token_ids_list)
+
+    # Pad token sequences to same length
+    padded_token_ids = np.array([
+        ids + [0]*(max_len - len(ids))  # assuming 0 is the padding id
+        for ids in token_ids_list
+    ])
+
+    batch_size = len(sample_texts)
+
+    # Create embedding layer
+    embedding_layer = EmbeddingLayer(
+        vocab_size=tokenizer.vocab_size, 
+        embedding_dim=256
+    )
+    # Instantiate Attention
+    attention = Attention(padded_token_ids, embedding_layer)
+
+    # Run forward pass
+    output = attention.fwd()
+
+    print("Attention output shape:", np.shape(output))
     print("="*60)
-    print("Code Ran Succesfully")
+    print("Attention forward pass ran successfully")
     print("="*60)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
