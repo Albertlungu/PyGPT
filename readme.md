@@ -5,8 +5,7 @@
 # PyGPT — A Learning LLM Project
 
 ## Overview
-This, as the description already says, is probably something very stupid.
-It's a GPT-like LLM that uses a wikipedia dump as a source, so you already can deduce that it probably isn't very smart. 
+It's a GPT-like LLM that uses a relatively small wikipedia dump as a source, so you already can deduce that it probably isn't very smart. 
 This is used as more of a learning experience for myself to understand the concepts of what AI is, and how an LLM is made. 
 
 ## Libraries used
