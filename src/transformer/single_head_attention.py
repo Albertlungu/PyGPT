@@ -68,7 +68,7 @@ class Attention():
 
         return probabilities
 
-    def fwd(self):
+    def fwd(self, x = None):
         """
         Computing query, key, and value matrices from input embeddings.
         Using these, compute attention scores and scaled attention scores.
@@ -80,6 +80,9 @@ class Attention():
         Return:
             ouput (3D list/tensor): Represents each token's embedding after looking at all tokens in the sequence. Shape: (batch_size, seq_len, embedding_dim)
         """
+        if x is not None:
+            self.input = x
+
         self.Q = self.input @ self.W_Q
         self.K = self.input @ self.W_K
         self.V = self.input @ self.W_V
@@ -126,7 +129,7 @@ def main():
     print(attention.fwd())
 
     attention_weights = attention.attention_weights[0]
-    
+
     # plt.figure(figsize=(8, 6))
     # plt.imshow(attention_weights, cmap='viridis', interpolation='nearest')
     # plt.colorbar(label='Attention weight')
