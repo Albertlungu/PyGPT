@@ -103,9 +103,9 @@ Normalizes activations across the feature dimension, making training more stable
 - [x] **Step 4 - Scale and shift**:
   - [x] `output_tensor = scale_parameter * normalized_tensor + shift_parameter`
   - [x] scale_parameter and shift_parameter are learnable
-  - [x] Shape: `(batch, seq_len, embedding_dimension)`
+  - [**x**] Shape: `(batch, seq_len, embedding_dimension)`
 
-- [ ] **Return**: output_tensor
+- [x] **Return**: output_tensor
 
 **What's happening**: Ensuring each token's features have mean≈0 and variance≈1, then applying learnable scaling/shifting to restore representational power.
 
@@ -137,8 +137,8 @@ Output
 
 #### Step 1a: Save Input (Residual Connection)
 
-- [ ] Store the input: `residual_connection_1 = input_embeddings`
-- [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] Store the input: `residual_connection_1 = input_embeddings`
+- [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Saving the original input to add back later. This is a "skip connection" that helps gradients flow during training.
 
@@ -149,14 +149,14 @@ Output
 
 #### Step 1b: Apply Layer Normalization
 
-- [ ] Normalize: `normalized_input_1 = layer_norm(input_embeddings, layer_norm_1_scale, layer_norm_1_shift)`
-- [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] Normalize: `normalized_input_1 = layer_norm(input_embeddings, layer_norm_1_scale, layer_norm_1_shift)`
+- [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 **Implementation**:
-- [ ] Calculate feature_mean across last dimension
-- [ ] Calculate feature_variance across last dimension  
-- [ ] Normalize: `(input - mean) / sqrt(variance + epsilon)`
-- [ ] Scale and shift: `layer_norm_1_scale * normalized + layer_norm_1_shift`
+- [x] Calculate feature_mean across last dimension
+- [x] Calculate feature_variance across last dimension  
+- [x] Normalize: `(input - mean) / sqrt(variance + epsilon)`
+- [x] Scale and shift: `layer_norm_1_scale * normalized + layer_norm_1_shift`
 
 **What's happening**: Stabilizing the input before attention. This is "Pre-Norm" architecture (normalization before sublayer).
 
@@ -167,8 +167,8 @@ Output
 
 #### Step 1c: Apply Attention
 
-- [ ] Pass through attention: `attention_output = self.attention_layer.forward(normalized_input_1)`
-- [ ] Verify shape: `(batch, seq_len, embedding_dimension)`
+- [x] Pass through attention: `attention_output = self.attention_layer.forward(normalized_input_1)`
+- [x] Verify shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Tokens gather contextual information from each other.
 
@@ -179,8 +179,8 @@ Output
 
 #### Step 1d: Add Residual Connection
 
-- [ ] Add: `after_attention = residual_connection_1 + attention_output`
-- [ ] Verify shape: `(batch, seq_len, embedding_dimension)`
+- [x] Add: `after_attention = residual_connection_1 + attention_output`
+- [x] Verify shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Combining the attention output with the original input. This preserves information and helps training.
 
@@ -195,8 +195,8 @@ Output
 
 #### Step 2a: Save Input (Residual Connection)
 
-- [ ] Store the output from sublayer 1: `residual_connection_2 = after_attention`
-- [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] Store the output from sublayer 1: `residual_connection_2 = after_attention`
+- [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 **Variable names**:
 - **residual_connection_2**: Copy of after_attention to be added back after feedforward
@@ -205,14 +205,14 @@ Output
 
 #### Step 2b: Apply Layer Normalization
 
-- [ ] Normalize: `normalized_input_2 = layer_norm(after_attention, layer_norm_2_scale, layer_norm_2_shift)`
-- [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] Normalize: `normalized_input_2 = layer_norm(after_attention, layer_norm_2_scale, layer_norm_2_shift)`
+- [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 **Implementation**:
-- [ ] Calculate feature_mean across last dimension
-- [ ] Calculate feature_variance across last dimension
-- [ ] Normalize: `(input - mean) / sqrt(variance + epsilon)`
-- [ ] Scale and shift: `layer_norm_2_scale * normalized + layer_norm_2_shift`
+- [x] Calculate feature_mean across last dimension
+- [x] Calculate feature_variance across last dimension
+- [x] Normalize: `(input - mean) / sqrt(variance + epsilon)`
+- [x] Scale and shift: `layer_norm_2_scale * normalized + layer_norm_2_shift`
 
 **Note**: Using different layer_norm_2_scale and layer_norm_2_shift parameters than the first normalization!
 
@@ -223,8 +223,8 @@ Output
 
 #### Step 2c: Apply FeedForward Network
 
-- [ ] Pass through feed-forward: `feedforward_output = self.feedforward_layer.forward(normalized_input_2)`
-- [ ] Verify shape: `(batch, seq_len, embedding_dimension)`
+- [x] Pass through feed-forward: `feedforward_output = self.feedforward_layer.forward(normalized_input_2)`
+- [x] Verify shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Non-linear transformation processing each token independently.
 
@@ -235,8 +235,8 @@ Output
 
 #### Step 2d: Add Residual Connection
 
-- [ ] Add: `final_output = residual_connection_2 + feedforward_output`
-- [ ] Verify shape: `(batch, seq_len, embedding_dimension)`
+- [x] Add: `final_output = residual_connection_2 + feedforward_output`
+- [x] Verify shape: `(batch, seq_len, embedding_dimension)`
 
 **What's happening**: Combining the feed-forward output with its input (the output from the attention sublayer).
 
@@ -249,8 +249,8 @@ Output
 
 ### Step 3: Return Final Output
 
-- [ ] Return: `final_output`
-- [ ] Shape: `(batch, seq_len, embedding_dimension)` - same as input!
+- [x] Return: `final_output`
+- [x] Shape: `(batch, seq_len, embedding_dimension)` - same as input!
 
 ---
 
@@ -288,154 +288,3 @@ final_output = residual_connection_2 + feedforward_output
     ↓
 return final_output: (batch, seq_len, embedding_dimension)
 ```
-
----
-
-## Testing Checklist
-
-### Basic Functionality Tests:
-
-- [ ] Create test input: `test_input = np.random.randn(2, 10, 64)`
-  - [ ] batch_size = 2
-  - [ ] sequence_length = 10
-  - [ ] embedding_dimension = 64
-
-- [ ] Initialize TransformerBlock:
-  - [ ] embedding_dimension = 64
-  - [ ] number_of_heads = 4
-  - [ ] feedforward_dimension = 256
-
-- [ ] Run forward pass: `output = transformer_block.forward(test_input)`
-
-- [ ] Verify output shape: Should be `(2, 10, 64)` - same as input!
-
-### Component Integration Tests:
-
-- [ ] Verify attention is being called:
-  - [ ] Add print statement in Attention.forward()
-  - [ ] Confirm it executes during TransformerBlock forward pass
-
-- [ ] Verify feed-forward is being called:
-  - [ ] Add print statement in FeedForward.forward()
-  - [ ] Confirm it executes during TransformerBlock forward pass
-
-- [ ] Check both sublayers execute in correct order:
-  - [ ] Attention sublayer first
-  - [ ] FeedForward sublayer second
-
-### Residual Connection Tests:
-
-- [ ] Test that residuals are working:
-  - [ ] Create simple input (e.g., all ones)
-  - [ ] If you set attention and feedforward outputs to zero, final output should equal input
-  - [ ] This confirms residual connections are adding correctly
-
-### Layer Normalization Tests:
-
-- [ ] Verify layer norm is working:
-  - [ ] Check output has mean ≈ 0 and variance ≈ 1 per token
-  - [ ] Use: `np.mean(normalized_tensor, axis=-1)` should be close to 0
-  - [ ] Use: `np.var(normalized_tensor, axis=-1)` should be close to 1
-
-- [ ] Verify different parameters are used:
-  - [ ] layer_norm_1_scale and layer_norm_1_shift for first sublayer
-  - [ ] layer_norm_2_scale and layer_norm_2_shift for second sublayer
-
-### Value Tests:
-
-- [ ] Check for errors:
-  - [ ] No NaN values: `np.isnan(output).any()` should be False
-  - [ ] No Inf values: `np.isinf(output).any()` should be False
-  - [ ] Values are reasonable (typically between -10 and 10)
-
----
-
-## Common Issues & Debugging
-
-### Issue: Shape mismatch in residual connection
-- [ ] Check that attention_output has same shape as input
-- [ ] Check that feedforward_output has same shape as input
-- [ ] Verify you're adding residual_connection_1 (original input), not normalized_input_1
-
-### Issue: Layer norm not working
-- [ ] Verify epsilon is included: `np.sqrt(feature_variance + epsilon)`
-- [ ] Check axis=-1 is used for mean/variance calculation
-- [ ] Verify keepdims=True in mean/variance calculation
-- [ ] Check scale and shift parameters shape matches embedding_dimension
-
-### Issue: Output has NaN values
-- [ ] Check layer norm epsilon is not too small (use 1e-5)
-- [ ] Verify attention weights are valid (no NaN in attention)
-- [ ] Check feedforward activations are valid
-
----
-
-## Example Dimensions
-
-For a typical small transformer:
-- embedding_dimension = 512
-- number_of_heads = 8
-- feedforward_dimension = 2048
-- batch_size = 32
-- sequence_length = 128
-
-**Complete flow**:
-```
-Input: (32, 128, 512)
-  ↓
-[LayerNorm] → (32, 128, 512)
-  ↓
-[Attention] → (32, 128, 512)
-  ↓
-[Add Residual] → (32, 128, 512)
-  ↓
-[LayerNorm] → (32, 128, 512)
-  ↓
-[FeedForward] → (32, 128, 512)
-  ↓
-[Add Residual] → (32, 128, 512) ✓
-```
-
----
-
-## Glossary of Terms
-
-- **embedding_dimension**: Size of token embeddings (e.g., 512)
-- **number_of_heads**: How many parallel attention mechanisms (e.g., 8)
-- **feedforward_dimension**: Hidden size in feedforward network (typically 4× embedding_dimension)
-- **residual_connection**: Skip connection that adds input to output
-- **layer_norm**: Normalization that standardizes features to mean=0, variance=1
-- **scale_parameter** (gamma): Learnable multiplier in layer norm
-- **shift_parameter** (beta): Learnable offset in layer norm
-- **Pre-Norm**: Normalizing before the sublayer (what we're using)
-- **sublayer**: Either the attention or feedforward component
-
----
-
-## Success Criteria
-
-You've successfully built TransformerBlock when:
-
-- [ ] Output shape matches input shape
-- [ ] Both attention and feed-forward are being called
-- [ ] Residual connections work correctly
-- [ ] Layer normalization produces normalized outputs
-- [ ] No errors with various batch sizes and sequence lengths
-- [ ] Can stack multiple blocks without issues
-- [ ] Values remain stable (no exploding/vanishing)
-- [ ] Ready to integrate into full transformer model!
-
----
-
-## Congratulations!
-
-If all checks pass, you've successfully built a complete TransformerBlock using only NumPy!
-
-**What you've accomplished**:
-✓ Built multi-head self-attention from scratch
-✓ Implemented feed-forward networks
-✓ Added layer normalization
-✓ Implemented residual connections
-✓ Combined everything into a working transformer block
-
-**You now understand transformers at the implementation level!**

@@ -18,7 +18,6 @@ class FeedForward():
         self.W2 = np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
         self.B2 = np.zeros(self.embedding_dim) # Bias second layer
 
-
         self.ff_input = embeddings.forward(token_ids)
         self.hidden_layer = self.ff_input @ self.W1 + self.B1
         
@@ -51,7 +50,7 @@ class FeedForward():
         """
         return np.maximum(0, x)
     
-    def forward(self, x):
+    def fwd(self, x):
         """
         Performs the forward pass of the feed-forward network.
 

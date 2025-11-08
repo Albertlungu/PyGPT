@@ -27,9 +27,9 @@ class EmbeddingLayer:
         Initializes an EmbeddingLayer object.
 
         Parameters:
-            vocab_size (int): the size of the vocabulary
-            embedding_dim (int): the size of the embedding dimension
-            max_seq_length (int, optional): the maximum sequence length. Defaults to 512.
+            vocab_size (int): the size of the vocabulary. Optional.
+            embedding_dim (int): the size of the embedding dimension. Optional.
+            max_seq_length (int, optional): the maximum sequence length. Defaults to 512. Optional.
         """
         self.vocab_size = vocab_size or BPETokenizer.default_vocab_size# taken from the tokenizer.pkl inside of artifacts/tokenizer.pkl or from inside tokenizers/tokenizer_class.py
         self.embedding_dim = embedding_dim or self.default_embedding_dim
@@ -46,7 +46,7 @@ class EmbeddingLayer:
 
         self.encoding_gradient = np.zeros_like(self.embeddings) # for future backpropagation, storing the gradient of the encoding
 
-    def forward(self, token_ids):
+    def fwd(self, token_ids):
         """
         Forward pass to convert input_ids to embeddings
 
