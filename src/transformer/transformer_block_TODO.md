@@ -8,9 +8,9 @@ The TransformerBlock combines Attention and FeedForward networks with layer norm
 ## Prerequisites
 
 Before building TransformerBlock, you must have:
-- [ ] Completed and tested FeedForward class
-- [ ] Completed and tested Attention class
-- [ ] Both classes work independently with correct output shapes
+- [x] Completed and tested FeedForward class
+- [x] Completed and tested Attention class
+- [x] Both classes work independently with correct output shapes
 
 ---
 
@@ -79,31 +79,31 @@ Normalizes activations across the feature dimension, making training more stable
 
 ### Implementation Checklist:
 
-- [ ] **Input parameters**: 
-  - [ ] input_tensor with shape `(batch, seq_len, embedding_dimension)`
-  - [ ] scale_parameter (gamma)
-  - [ ] shift_parameter (beta)
-  - [ ] epsilon (default 1e-5, prevents division by zero)
+- [x] **Input parameters**: 
+  - [x] input_tensor with shape `(batch, seq_len, embedding_dimension)`
+  - [x] scale_parameter (gamma)
+  - [x] shift_parameter (beta)
+  - [x] epsilon (default 1e-5, prevents division by zero)
 
-- [ ] **Step 1 - Calculate mean**:
-  - [ ] `feature_mean = np.mean(input_tensor, axis=-1, keepdims=True)`
-  - [ ] Shape: `(batch, seq_len, 1)`
-  - [ ] Computed across embedding_dimension for each token
+- [x] **Step 1 - Calculate mean**:
+  - [x] `feature_mean = np.mean(input_tensor, axis=-1, keepdims=True)`
+  - [x] Shape: `(batch, seq_len, 1)`
+  - [x] Computed across embedding_dimension for each token
 
-- [ ] **Step 2 - Calculate variance**:
-  - [ ] `feature_variance = np.var(input_tensor, axis=-1, keepdims=True)`
-  - [ ] Shape: `(batch, seq_len, 1)`
-  - [ ] Computed across embedding_dimension for each token
+- [x] **Step 2 - Calculate variance**:
+  - [x] `feature_variance = np.var(input_tensor, axis=-1, keepdims=True)`
+  - [x] Shape: `(batch, seq_len, 1)`
+  - [x] Computed across embedding_dimension for each token
 
-- [ ] **Step 3 - Normalize**:
-  - [ ] `normalized_tensor = (input_tensor - feature_mean) / np.sqrt(feature_variance + epsilon)`
-  - [ ] epsilon (1e-5) prevents division by zero
-  - [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] **Step 3 - Normalize**:
+  - [x] `normalized_tensor = (input_tensor - feature_mean) / np.sqrt(feature_variance + epsilon)`
+  - [x] epsilon (1e-5) prevents division by zero
+  - [x] Shape: `(batch, seq_len, embedding_dimension)`
 
-- [ ] **Step 4 - Scale and shift**:
-  - [ ] `output_tensor = scale_parameter * normalized_tensor + shift_parameter`
-  - [ ] scale_parameter and shift_parameter are learnable
-  - [ ] Shape: `(batch, seq_len, embedding_dimension)`
+- [x] **Step 4 - Scale and shift**:
+  - [x] `output_tensor = scale_parameter * normalized_tensor + shift_parameter`
+  - [x] scale_parameter and shift_parameter are learnable
+  - [x] Shape: `(batch, seq_len, embedding_dimension)`
 
 - [ ] **Return**: output_tensor
 
