@@ -2,7 +2,7 @@ import numpy as np
 import pickle
 from embeddings.embeddings import EmbeddingLayer
 from transformer.feed_forward import FeedForward
-from transformer.attention import Attention
+from src.transformer.single_head_attention import Attention
 from tokenizer.tokenizer_class import BPETokenizer
 
 def main():

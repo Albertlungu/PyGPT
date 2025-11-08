@@ -5,7 +5,7 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer
 from src.transformer.single_head_attention import Attention
-from feed_forward import FeedForward
+from src.transformer.feed_forward import FeedForward
 from src.tokenizer.tokenizer_class import BPETokenizer
 
 class TransformerBlock:

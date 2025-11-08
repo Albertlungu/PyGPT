@@ -8,7 +8,39 @@ from src.embeddings.embeddings import EmbeddingLayer
 from src.tokenizer.tokenizer_class import BPETokenizer 
 
 class FeedForward():
+    """
+    A FeedForward neural network module used within transformer architectures.
+
+    This class implements a two-layer feed-forward network with GELU activation.
+    It takes token embeddings as input and applies a linear transformation followed
+    by a non-linear activation and another linear transformation to produce the output.
+
+    Key components:
+    - Two sets of weights and biases (W1, B1 for the first layer, W2, B2 for the second layer).
+    - GELU activation function.
+    - Forward and backward passes for training with gradient descent.
+    """
+
     def __init__(self, token_ids, embeddings: EmbeddingLayer):
+        """
+        Initializes the FeedForward network.
+
+        Args:
+            token_ids (list): List of token IDs representing input sequences.
+            embeddings (EmbeddingLayer): An instance of EmbeddingLayer to convert token IDs to embeddings.
+
+        Attributes:
+            embedding_dim (int): Dimensionality of the embeddings.
+            ff_dim (int): Dimensionality of the feed-forward hidden layer (4 times embedding_dim).
+            W1 (np.ndarray): Weight matrix for the first linear layer of shape (embedding_dim, ff_dim).
+            B1 (np.ndarray): Bias vector for the first linear layer of shape (ff_dim,).
+            W2 (np.ndarray): Weight matrix for the second linear layer of shape (ff_dim, embedding_dim).
+            B2 (np.ndarray): Bias vector for the second linear layer of shape (embedding_dim,).
+            ff_input (np.ndarray): Input embeddings to the feed-forward network.
+            hidden_layer (np.ndarray): Output of the first linear layer before activation.
+            activated_layer (np.ndarray): Output after applying the GELU activation.
+            output (np.ndarray): Final output of the feed-forward network.
+        """
         self.embedding_dim = EmbeddingLayer.default_embedding_dim
         self.ff_dim = self.embedding_dim * 4 # Feed Forward dimension
 
