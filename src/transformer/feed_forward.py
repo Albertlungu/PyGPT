@@ -8,7 +8,7 @@ from src.embeddings.embeddings import EmbeddingLayer
 from src.tokenizer.tokenizer_class import BPETokenizer 
 
 class FeedForward():
-    def __init__(self, embeddings: EmbeddingLayer, token_ids):
+    def __init__(self, token_ids, embeddings: EmbeddingLayer):
         self.embedding_dim = EmbeddingLayer.default_embedding_dim
         self.ff_dim = self.embedding_dim * 4 # Feed Forward dimension
 
@@ -118,7 +118,7 @@ def main():
 ]
     token_ids = [tokenizer.encode(text) for text in sample_texts]
 
-    ff_class = FeedForward(embedding_layer, token_ids)
+    ff_class = FeedForward(token_ids, embedding_layer)
     # print(ff_class.hidden_layer)
 #     print("Output shape: ", np.shape(ff_class.forward(ff_class.ff_input)))
 

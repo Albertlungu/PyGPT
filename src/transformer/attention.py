@@ -1,15 +1,14 @@
 import numpy as np
 import pickle
-import sys
-import os
-
-# Add project root to path for absolute imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+import sys, os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer
 from src.transformer.feed_forward import FeedForward
+from src.tokenizer.tokenizer_class import BPETokenizer  # manually register the class
+
 
 class Attention():
-    def __init__(self, token_ids, embedding_layer: EmbeddingLayer, ffn = FeedForward):
+    def __init__(self, token_ids, embedding_layer: EmbeddingLayer):
         self.embedding_dim = embedding_layer.embedding_dim
         embedded = embedding_layer.forward(token_ids)
         self.input = embedded
@@ -24,7 +23,7 @@ class Attention():
 
     @staticmethod
     def softmax(x):
-        """Softmax function, returning normalized probabilities?'/
+        """Softmax function, returning normalized probabilities
 
         Args:
             x (numpy array):  scaled scores from mask
@@ -47,6 +46,8 @@ class Attention():
                 - To prevent the model from looking ahead to predicted tokens
                 - When predicting token *t*, the model can only look at tokens ≤ t
 
+        Return:
+            ouput (3D list/tensor): Represents each token's embedding after looking at all tokens in the sequence. Shape: (batch_size, seq_len, embedding_dim)
         """
         self.Q = self.input @ self.W_Q
         self.K = self.input @ self.W_K
@@ -77,8 +78,21 @@ class Attention():
 def main():
     # Test the attention class
     embedding_layer = EmbeddingLayer()
-    attention = Attention(embedding_layer)
-    # print(f"Embedding dimension: {attention.embedding_dim}")
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+    
+    sample_texts = [
+        "Hello World. My name is Albert Lungu",
+        "What is your name?",
+        "I like LLMs"
+    ]
+
+    # Convert texts to token ids
+    token_ids = [tokenizer.encode(text) for text in sample_texts]
+
+    attention = Attention(token_ids, embedding_layer)
+    print(np.shape(attention.fwd()))
 
 if __name__ == "__main__":
     main()
