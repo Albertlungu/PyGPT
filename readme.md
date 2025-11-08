@@ -95,7 +95,8 @@ To decompress the data, simply perform the replacements in the reverse order.
 - [x] Feed Forward Layer
 - [x] Attention module (single head)
 - [ ] Multi-head attention (optional)
-- [ ] Transformer Block
+- [x] Transformer Block
+- [ ] Output Layer
 - [ ] Loss Function
 - [ ] Optimization
 - [ ] Training
