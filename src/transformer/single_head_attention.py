@@ -5,21 +5,52 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from src.embeddings.embeddings import EmbeddingLayer
 from src.transformer.feed_forward import FeedForward
 from src.tokenizer.tokenizer_class import BPETokenizer  # manually register the class
+import matplotlib.pyplot as plt
 
 
 class Attention():
+    """
+    Implements a single-head self-attention mechanism for transformer models.
+
+    This class computes attention by generating query, key, and value matrices
+    from input embeddings. It applies scaled dot-product attention with a 
+    causal mask to prevent positions from attending to future tokens, 
+    ensuring proper autoregressive behaviour in decoder models. 
+
+    Attributes:
+        input (3D tensor): Embedded input tokens of shape (batch_size, seq_len, embedding_dim).
+        batch_size (int): Number of sequences in a batch.
+        seq_len (int): Length of each input sequence.
+        embedding_dim (int): Dimensionality of input embeddings.
+        W_Q, W_K, W_V, W_O (3D tensor): Learnable weight matrices for queries, keys, values, and output projection.
+        Q, K, V (3D tensor): Query, key, and value matrices computed from input embeddings.
+        attention_scores (3D tensor): Raw attention scores before scaling or masking.
+        scaled_scores (3D tensor): Attention scores scaled by sqrt(embedding_dim).
+        masked_scores (3D tensor): Scaled scores with causal mask applied.
+        attention_weights (3D tensor): Softmax-normalized attention weights.
+        attention_output (3D tensor): Weighted sum of values based on attention weights.
+        output (3D tensor): Final projected output of the attention layer.
+
+    """
     def __init__(self, token_ids, embedding_layer: EmbeddingLayer):
+        """
+        Initializes Attention instance attributes
+
+        Args:
+            token_ids (list): IDs of input tokens given to model (padding is already applied in FeedForward layer)
+            embedding_layer (EmbeddingLayer): EmbeddingLayer class. Takes no arguments.
+        """
         self.embedding_dim = embedding_layer.embedding_dim
         embedded = embedding_layer.forward(token_ids)
         self.input = embedded
         self.batch_size = embedded.shape[0]  # batch dimension
         self.seq_len = embedded.shape[1]     
 
-        self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim)
-        self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim)
-        self.W_V = np.random.randn(self.embedding_dim, self.embedding_dim)
+        self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+        self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+        self.W_V = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
 
-        self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim)
+        self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
 
     @staticmethod
     def softmax(x):
@@ -92,7 +123,18 @@ def main():
     token_ids = [tokenizer.encode(text) for text in sample_texts]
 
     attention = Attention(token_ids, embedding_layer)
-    print(np.shape(attention.fwd()))
+    print(attention.fwd())
+
+    attention_weights = attention.attention_weights[0]
+    
+    # plt.figure(figsize=(8, 6))
+    # plt.imshow(attention_weights, cmap='viridis', interpolation='nearest')
+    # plt.colorbar(label='Attention weight')
+    # plt.title("Attention Heatmap (first sequence)")
+    # plt.xlabel("Key position")
+    # plt.ylabel("Query position")
+    # plt.show()
+
 
 if __name__ == "__main__":
     main()
