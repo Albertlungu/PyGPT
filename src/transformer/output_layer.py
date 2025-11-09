@@ -12,11 +12,18 @@ from src.transformer.transformer_block import TransformerBlock
 
 class OutputLayer:
     def __init__(self, embedding_layer: EmbeddingLayer):
+        """
+        Initializes instance attributes for OutputLayer class.
+
+        Args:
+            embedding_layer (EmbeddingLayer): EmbeddingLayer class.
+        """
         self.embedding_layer = embedding_layer
         self.embedding_dim = self.embedding_layer.embedding_dim
         self.vocab_size = embedding_layer.vocab_size
 
-        self.W_out = embedding_layer.embeddings # Weight matrix
+        self.W_out = embedding_layer.embeddings.T # Weight matrix shape: (embedding_dim, vocab_size)
+        # self.W_out = np.random.randn(self.embedding_dim, self.vocab_size) * 0.01
         self.b_out = np.zeros(self.vocab_size) # Bias vector
 
     def fwd(self, transformer_output):
@@ -28,15 +35,76 @@ class OutputLayer:
 
         Returns:
             3D Tensor: Logits over vocabulary,
-                Shape: (batch_size, seq_len, embedding_dim)
+                Shape: (batch_size, seq_len, vocab_size)
         """
-        logits = transformer_output @ self.W_out + self.b_out
-        return logits
+        self.logits = transformer_output @ self.W_out + self.b_out
+        # print(np.shape(self.logits))
+        return self.logits
     
-    def softmax(self, logits):
+    @staticmethod
+    def softmax(logits):
+        """
+        Calculates probabilities given a 3D tensor of logits
+
+        Args:
+            logits (np.ndarray): unnormalized output of the transformer_block
+
+        Returns:
+            np.ndarray: probabilities taken from logits through softmax function
+        """
         exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
         probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
         return probs
+
+    def predict_next_token(self, transformer_output, temperature = 1.0):
+        """
+        Samples the next token from the model's predictions.
+
+        Args:
+            transformer_output (np.ndarray): Output from last TransformerBlock
+                                            shape: (batch_size, seq_len, embedding_dim)
+            temperature (float): Sampling temperature (default 1.0)
+                                Higher = more random, Lower = more deterministic
+
+        Returns:
+            np.ndarray: Predicted token IDs
+                        shape: (batch_size,) - one prediction per sequence
+        """
+        logits = self.fwd(transformer_output)[:, -1, :]
+        scaled_logits = logits/temperature
+        probs = self.softmax(scaled_logits)
+        predicted_tokens = np.argmax(probs, axis = -1)
+        return predicted_tokens
+        
+
         
     
-    
+def main():
+
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+
+    sample_texts = [
+        "Hello World. My name is Albert Lungu",
+        "What is your name?",
+        "I like LLMs"
+    ] # Batch size: 3, Seq_len = 12
+
+    token_ids = [tokenizer.encode(text) for text in sample_texts]
+
+    embedding_layer = EmbeddingLayer()
+    output_layer = OutputLayer(embedding_layer)
+    transformer_block = TransformerBlock(token_ids, embedding_layer)
+    transformer_output = transformer_block.fwd()
+
+    output_fwd = output_layer.fwd(transformer_output)
+
+    print(np.shape(output_fwd)) # Output: (3, 12, 5000)
+    print(output_fwd)
+    print(np.shape(output_layer.softmax(output_fwd)))
+    print(output_layer.softmax(output_fwd))
+
+
+if __name__ == "__main__":
+    main()

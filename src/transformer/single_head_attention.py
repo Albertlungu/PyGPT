@@ -41,7 +41,7 @@ class Attention():
             embedding_layer (EmbeddingLayer): EmbeddingLayer class. Takes no arguments.
         """
         self.embedding_dim = embedding_layer.embedding_dim
-        embedded = embedding_layer.forward(token_ids)
+        embedded = embedding_layer.fwd(token_ids)
         self.input = embedded
         self.batch_size = embedded.shape[0]  # batch dimension
         self.seq_len = embedded.shape[1]     

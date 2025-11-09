@@ -1,10 +1,10 @@
 import numpy as np
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
-from .positional_encoding import PositionalEncoding
+from src.embeddings.positional_encoding import PositionalEncoding
 import re
 from tqdm import tqdm
 import pickle

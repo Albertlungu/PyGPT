@@ -42,7 +42,7 @@ class TransformerBlock:
         self.ffn = FeedForward(token_ids, embedding_layer)
 
         self.embedding_dim = embedding_layer.embedding_dim
-        self.input_embeddings = self.embedding_layer.forward(self.token_ids)
+        self.input_embeddings = self.embedding_layer.fwd(self.token_ids)
 
         # First normalization: layer normalization 1 scale. Makes learnable scaling after normalization
         self.gamma_1 = np.ones(self.embedding_dim)
