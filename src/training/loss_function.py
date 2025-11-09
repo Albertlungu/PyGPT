@@ -37,10 +37,20 @@ class CrossEntropyLoss:
         """
         targets = np.array(targets)
 
-        self.batch_size, self.seq_len, self.vocab_size = logits.shape
-
-        logits = logits.reshape(-1, self.vocab_size)
-        targets = targets.reshape(-1)
+        # Handle both 2D and 3D inputs
+        if logits.ndim == 2:
+            # 2D input: (seq_len, vocab_size)
+            self.batch_size = 1
+            self.seq_len, self.vocab_size = logits.shape
+            logits = logits.reshape(-1, self.vocab_size)
+            targets = targets.reshape(-1)
+        elif logits.ndim == 3:
+            # 3D input: (batch_size, seq_len, vocab_size)
+            self.batch_size, self.seq_len, self.vocab_size = logits.shape
+            logits = logits.reshape(-1, self.vocab_size)
+            targets = targets.reshape(-1)
+        else:
+            raise ValueError(f"Expected logits to be 2D or 3D, got shape {logits.shape}")
 
         if self.ignore_index is not None:
             mask = targets != self.ignore_index
@@ -90,13 +100,22 @@ class CrossEntropyLoss:
         """
         targets = np.array(targets)
 
-        batch_size, seq_len, vocab_size = logits.shape
+        # Handle both 2D and 3D inputs
+        if logits.ndim == 2:
+            # 2D input: (seq_len, vocab_size)
+            batch_size = 1
+            seq_len, vocab_size = logits.shape
+        elif logits.ndim == 3:
+            # 3D input: (batch_size, seq_len, vocab_size)
+            batch_size, seq_len, vocab_size = logits.shape
+        else:
+            raise ValueError(f"Expected logits to be 2D or 3D, got shape {logits.shape}")
 
         one_hot_targets = np.zeros_like(logits)
         one_hot_flat = one_hot_targets.reshape(-1, vocab_size)
-        targets = targets.reshape(-1)
-        one_hot_flat[np.arange(len(targets)), targets] = 1
-        one_hot_targets = one_hot_flat.reshape(batch_size, seq_len, vocab_size)
+        targets_flat = targets.reshape(-1)
+        one_hot_flat[np.arange(len(targets_flat)), targets_flat] = 1
+        one_hot_targets = one_hot_flat.reshape(logits.shape)
 
         d_logits = probs - one_hot_targets
 
@@ -104,6 +123,12 @@ class CrossEntropyLoss:
 
         if self.ignore_index is not None:
             mask = targets != self.ignore_index
-            d_logits = d_logits * mask[:, :, None]  # broadcast mask over vocab dimension
+            # Reshape mask to match logits dimensions
+            if logits.ndim == 2:
+                # For 2D: mask is 1D, expand to (seq_len, 1)
+                d_logits = d_logits * mask[:, None]
+            else:
+                # For 3D: mask is 2D, expand to (batch_size, seq_len, 1)
+                d_logits = d_logits * mask[:, :, None]
 
         return d_logits

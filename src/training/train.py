@@ -80,7 +80,9 @@ class Trainer:
                 batch_loss /= len(batch_token_ids)
                 
                 # Backward pass with averaged gradients
-                self.backward(logits[:, :-1, :], batch_token_ids, transformer_out[:, :-1, :])
+                # Targets are shifted by 1: for each input token, predict the next token
+                targets_shifted = np.array(batch_token_ids)[:, 1:]
+                self.backward(logits[:, :-1, :], targets_shifted, transformer_out[:, :-1, :])
                 self.clip_gradients()
                 self.step()
                 

@@ -147,9 +147,10 @@ class TransformerBlock:
 
         # Backprop through feedforward network
         batch_size_dout = d_ff_output.shape[0]
-        truncated_ff_input = self.ff_input_to_fwd[:batch_size_dout, :, :]
-        truncated_activated_layer = self.ffn_activated_layer[:batch_size_dout, :, :]
-        truncated_hidden_layer = self.ffn_hidden_layer[:batch_size_dout, :, :]
+        seq_len_dout = d_ff_output.shape[1]
+        truncated_ff_input = self.ff_input_to_fwd[:batch_size_dout, :seq_len_dout, :]
+        truncated_activated_layer = self.ffn_activated_layer[:batch_size_dout, :seq_len_dout, :]
+        truncated_hidden_layer = self.ffn_hidden_layer[:batch_size_dout, :seq_len_dout, :]
         d_ln2_out = self.ffn.backward(d_ff_output, truncated_ff_input, truncated_activated_layer, truncated_hidden_layer)  # shape: (batch, seq_len, embedding_dim)
 
         # Add gradient from residual
@@ -157,7 +158,8 @@ class TransformerBlock:
 
         # ===== LayerNorm 2 backward =====
         batch_size_d_ln2_out = d_ln2_out.shape[0]
-        truncated_after_attention = self.after_attention[:batch_size_d_ln2_out, :, :]
+        seq_len_d_ln2_out = d_ln2_out.shape[1]
+        truncated_after_attention = self.after_attention[:batch_size_d_ln2_out, :seq_len_d_ln2_out, :]
         d_after_attention, d_gamma2, d_beta2 = self.layer_norm_backward(d_ln2_out, truncated_after_attention, self.gamma_2, self.beta_2)
         # Store gradients for gamma and beta
         self.d_gamma_2 = d_gamma2
@@ -168,11 +170,13 @@ class TransformerBlock:
         d_residual1 = d_after_attention
         # Backprop through attention
         batch_size_d_after_attention = d_after_attention.shape[0]
-        truncated_attention_input_fwd = self.attention_input_fwd[:batch_size_d_after_attention, :, :]
-        truncated_attention_output_fwd = self.attention_output_fwd[:batch_size_d_after_attention, :, :]
-        truncated_attention_V_fwd = self.attention_V_fwd[:batch_size_d_after_attention, :, :]
-        truncated_attention_weights_fwd = self.attention_weights_fwd[:batch_size_d_after_attention, :, :]
-        truncated_attention_K_fwd = self.attention_K_fwd[:batch_size_d_after_attention, :, :]
+        seq_len_d_after_attention = d_after_attention.shape[1]
+        truncated_attention_input_fwd = self.attention_input_fwd[:batch_size_d_after_attention, :seq_len_d_after_attention, :]
+        truncated_attention_output_fwd = self.attention_output_fwd[:batch_size_d_after_attention, :seq_len_d_after_attention, :]
+        truncated_attention_V_fwd = self.attention_V_fwd[:batch_size_d_after_attention, :seq_len_d_after_attention, :]
+        # Attention weights are (batch, seq_len, seq_len) so truncate both seq dimensions
+        truncated_attention_weights_fwd = self.attention_weights_fwd[:batch_size_d_after_attention, :seq_len_d_after_attention, :seq_len_d_after_attention]
+        truncated_attention_K_fwd = self.attention_K_fwd[:batch_size_d_after_attention, :seq_len_d_after_attention, :]
         d_ln1_out = self.attention_layer.backward(d_after_attention, truncated_attention_input_fwd, truncated_attention_output_fwd, truncated_attention_V_fwd, truncated_attention_weights_fwd, truncated_attention_K_fwd)  # shape: (batch, seq_len, embedding_dim)
 
         # Add gradient from residual
@@ -180,7 +184,8 @@ class TransformerBlock:
 
         # ===== LayerNorm 1 backward =====
         batch_size_d_ln1_out = d_ln1_out.shape[0]
-        truncated_input_embeddings = self.input_embeddings[:batch_size_d_ln1_out, :, :]
+        seq_len_d_ln1_out = d_ln1_out.shape[1]
+        truncated_input_embeddings = self.input_embeddings[:batch_size_d_ln1_out, :seq_len_d_ln1_out, :]
         d_input_embeddings, d_gamma1, d_beta1 = self.layer_norm_backward(d_ln1_out, truncated_input_embeddings, self.gamma_1, self.beta_1)
         self.d_gamma_1 = d_gamma1
         self.d_beta_1 = d_beta1
