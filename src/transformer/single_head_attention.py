@@ -62,7 +62,7 @@ class Attention():
 
         Args:
             x (numpy array):  scaled scores from mask
-        
+
         Return:
             probablities (numpy array): probabilities
         """
@@ -70,7 +70,7 @@ class Attention():
         e_x = np.exp(x - np.max(x, axis=-1, keepdims=True))
         probabilities = e_x / np.sum(e_x, axis=-1, keepdims=True)
 
-        return probabilities
+        return probabilities.astype(np.float32)
 
     def fwd(self, x = None):
         """
@@ -87,29 +87,29 @@ class Attention():
         if x is not None:
             self.input = x
 
-        self.Q = self.input @ self.W_Q
-        self.K = self.input @ self.W_K
-        self.V = self.input @ self.W_V
+        self.Q = (self.input @ self.W_Q).astype(np.float32)
+        self.K = (self.input @ self.W_K).astype(np.float32)
+        self.V = (self.input @ self.W_V).astype(np.float32)
 
         # Creating attention scores based on tranposed key matrix shapes from (batch, seq_len, embedding_dim) to (batch, embedding_dim, seq_len)
         self.K_transposed = np.transpose(self.K, (0,2,1))
-        self.attention_scores = self.Q @ self.K_transposed # Shape result of this is (batch, seq_len, seq_len)
+        self.attention_scores = (self.Q @ self.K_transposed).astype(np.float32) # Shape result of this is (batch, seq_len, seq_len)
 
         # Scaling the scores to prevent dot product from becoming too large
-        self.scaled_scores = self.attention_scores / np.sqrt(self.embedding_dim)
+        self.scaled_scores = (self.attention_scores / np.sqrt(self.embedding_dim)).astype(np.float32)
 
         # Applying a mask of shape (batch, seq_len, seq_len)
         mask = np.tril(np.ones((self.batch_size, self.seq_len, self.seq_len), dtype=np.float32))
-        self.masked_scores = np.where(mask == 0, -1e9, self.scaled_scores)
+        self.masked_scores = np.where(mask == 0, -1e9, self.scaled_scores).astype(np.float32)
 
         # Applying softmax function to masked scores
         self.attention_weights = self.softmax(self.masked_scores)
 
         # Applying attention to values
-        self.attention_output = self.attention_weights @ self.V
+        self.attention_output = (self.attention_weights @ self.V).astype(np.float32)
 
         # Final output projection
-        self.output = self.attention_output @ self.W_O
+        self.output = (self.attention_output @ self.W_O).astype(np.float32)
         return self.output, self.input, self.attention_output, self.V, self.attention_weights, self.K
     
     def backward(self, d_output, input_tensor, attention_output_fwd, V_fwd, attention_weights_fwd, K_fwd):

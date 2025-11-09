@@ -37,7 +37,7 @@ class OutputLayer:
             3D Tensor: Logits over vocabulary,
                 Shape: (batch_size, seq_len, vocab_size)
         """
-        self.logits = transformer_output @ self.W_out + self.b_out
+        self.logits = (transformer_output @ self.W_out + self.b_out).astype(np.float32)
         # print(np.shape(self.logits))
         return self.logits
     
@@ -75,7 +75,7 @@ class OutputLayer:
         """
         exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
         probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-        return probs
+        return probs.astype(np.float32)
 
     def predict_next_token(self, transformer_output, temperature = 1.0):
         """

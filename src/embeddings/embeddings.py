@@ -86,10 +86,10 @@ class EmbeddingLayer:
         token_embeddings = self.embeddings[padded_token_ids]  # shape (batch_size, max_len, embedding_dim)
         token_embeddings = token_embeddings * np.sqrt(self.embedding_dim)  # scale embeddings
 
-        pos_enc = self.positional_encodings[:self.max_len, :]  # shape (max_len, embedding_dim)
+        pos_enc = self.positional_encodings[:self.max_len, :].astype(np.float32)  # shape (max_len, embedding_dim)
 
         # Add positional encoding to each sequence
-        output = token_embeddings + pos_enc[np.newaxis, :, :]
+        output = (token_embeddings + pos_enc[np.newaxis, :, :]).astype(np.float32)
 
         return output  # shape (batch_size, max_len, embedding_dim)
 

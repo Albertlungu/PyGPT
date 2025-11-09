@@ -67,7 +67,7 @@ class TransformerBlock:
                 normalized: The features after subtracting the mean and dividing by the standard deviation, resulting in zero mean and unit variance.
                 token's feature: one component of the vector that represents that token
 
-            
+
             Args:
                 x (3D tensor): the input tensor for the TransformerBlock. a.k.a the output from the fwd of the attention. Shape: (batch, seq_len, embedding_dim)
                 gamma (vector): A learnable scaling parameter applied after normalization to allow the model to adjust the normalized output.
@@ -83,7 +83,7 @@ class TransformerBlock:
 
             normalized = (x - mean) / np.sqrt(var + epsilon)
 
-            output = gamma * normalized + beta
+            output = (gamma * normalized + beta).astype(np.float32)
 
             return output
         

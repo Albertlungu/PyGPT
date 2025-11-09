@@ -74,7 +74,7 @@ class FeedForward():
         Returns:
             array: activated layer from hidden layer
         """
-        return 0.5 * x *(1+np.tanh(np.sqrt(2/np.pi) * (x + 0.044715 * x**3)))
+        return (0.5 * x *(1+np.tanh(np.sqrt(2/np.pi) * (x + 0.044715 * x**3)))).astype(np.float32)
     
     def ReLU(self, x):
         """Basically GELU but simpler
@@ -98,9 +98,9 @@ class FeedForward():
             np.ndarray: Output array of shape (batch_size, embedding_dim).
         """
         self.ff_input = x
-        self.hidden_layer = self.ff_input @ self.W1 + self.B1
+        self.hidden_layer = (self.ff_input @ self.W1 + self.B1).astype(np.float32)
         self.activated_layer = self.GELU(self.hidden_layer)
-        self.output = self.activated_layer @ self.W2 + self.B2
+        self.output = (self.activated_layer @ self.W2 + self.B2).astype(np.float32)
         return self.output, self.hidden_layer, self.activated_layer
 
     def backward(self, dout, input_to_ffn, activated_layer, hidden_layer):
