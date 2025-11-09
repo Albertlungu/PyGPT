@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+from tqdm import tqdm
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from embeddings.embeddings import EmbeddingLayer
@@ -26,11 +27,11 @@ def main():
 
     # ]
 
-    max_lines = 10
+    max_lines = 100
     training_texts = []
 
     with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
+        for i, line in enumerate(tqdm(f, total=max_lines, desc = "Loading texts...")):
             if i >= max_lines:
                 break
             training_texts.append(line.strip())
@@ -47,7 +48,7 @@ def main():
 
     print("="*60)
     print("Training model.")
-    trainer.train(epochs=10)
+    trainer.train(epochs=300)
     print("Finished training model.")
     print("="*60)
 
@@ -68,7 +69,7 @@ def main():
     )
     embeddings = embedding_layer.fwd(token_ids)
 
-    prompt = "Once upon a time"
+    prompt = "Once upon a time: "
     generated_text = trainer.generate(prompt, max_length = 50)
     print("Generated: \n", generated_text)
 
