@@ -50,6 +50,11 @@ class FeedForward():
         self.W2 = np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
         self.B2 = np.zeros(self.embedding_dim) # Bias second layer
 
+        self.dW1 = np.zeros_like(self.W1)
+        self.dB1 = np.zeros_like(self.B1)
+        self.dW2 = np.zeros_like(self.W2)
+        self.dB2 = np.zeros_like(self.B2)
+
         self.ff_input = embeddings.fwd(token_ids)
         self.hidden_layer = self.ff_input @ self.W1 + self.B1
         
@@ -96,40 +101,39 @@ class FeedForward():
         self.hidden_layer = self.ff_input @ self.W1 + self.B1
         self.activated_layer = self.GELU(self.hidden_layer)
         self.output = self.activated_layer @ self.W2 + self.B2
-        return self.output
+        return self.output, self.hidden_layer, self.activated_layer
 
-    def backward(self, dout, learning_rate=1e-3):
+    def backward(self, dout, input_to_ffn, activated_layer, hidden_layer):
         """
-        Performs the backward pass and updates weights using gradient descent.
+        Performs the backward pass and calculates gradients.
 
         Args:
-            dout (np.ndarray): Gradient of loss with respect to output, shape (batch_size, embedding_dim).
-            learning_rate (float): Learning rate for weight updates.
+            dout (np.ndarray): Gradient of loss with respect to output, shape (batch_size, seq_len, embedding_dim).
+            input_to_ffn (np.ndarray): Input to the forward pass of the feed-forward network,
+                                       shape (batch_size, seq_len, embedding_dim).
+            activated_layer (np.ndarray): Output of the first linear layer after activation,
+                                          shape (batch_size, seq_len, ff_dim).
+            hidden_layer (np.ndarray): Output of the first linear layer before activation,
+                                       shape (batch_size, seq_len, ff_dim).
 
         Returns:
-            np.ndarray: Gradient of loss with respect to input x, shape (batch_size, embedding_dim).
+            np.ndarray: Gradient of loss with respect to input x, shape (batch_size, seq_len, embedding_dim).
         """
         # Gradient of output layer
-        dW2 = self.activated_layer.T @ dout
-        dB2 = np.sum(dout, axis=0)
+        self.dW2 = np.einsum('bsf, bse -> fe', activated_layer, dout) # f: ff_dim, e: embedding_dim
+        self.dB2 = np.sum(dout, axis=(0, 1))
 
         # Gradient through activation
         dactivated = dout @ self.W2.T
-        dgelu = dactivated * (0.5 * (1 + np.tanh(np.sqrt(2/np.pi)*(self.hidden_layer + 0.044715 * self.hidden_layer**3))) + 
-                             0.5 * self.hidden_layer * (1 - np.tanh(np.sqrt(2/np.pi)*(self.hidden_layer + 0.044715 * self.hidden_layer**3))**2) * 
-                             np.sqrt(2/np.pi) * (1 + 3 * 0.044715 * self.hidden_layer**2))
+        dgelu = dactivated * (0.5 * (1 + np.tanh(np.sqrt(2/np.pi)*(hidden_layer + 0.044715 * hidden_layer**3))) + 
+                             0.5 * hidden_layer * (1 - np.tanh(np.sqrt(2/np.pi)*(hidden_layer + 0.044715 * hidden_layer**3))**2) * 
+                             np.sqrt(2/np.pi) * (1 + 3 * 0.044715 * hidden_layer**2))
 
-        dW1 = self.ff_input.T @ dgelu
-        dB1 = np.sum(dgelu, axis=0)
+        self.dW1 = np.einsum('bse, bsf -> ef', input_to_ffn, dgelu) # e: embedding_dim, f: ff_dim
+        self.dB1 = np.sum(dgelu, axis=(0, 1))
 
         # Gradient with respect to input
         dx = dgelu @ self.W1.T
-
-        # Update weights and biases
-        self.W2 -= learning_rate * dW2
-        self.B2 -= learning_rate * dB2
-        self.W1 -= learning_rate * dW1
-        self.B1 -= learning_rate * dB1
 
         return dx
     

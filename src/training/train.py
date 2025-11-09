@@ -29,19 +29,21 @@ class Trainer:
 
         self.lr = lr
         self.params = self.collect_params()
+        self.transformer_out = None
 
     def fwd(self, token_ids):
         # embeddings = self.embedding_layer(token_ids)
         transformer_out = self.transformer_block.fwd()
-        logits = self.output_layer(transformer_out)
-        return logits
+        logits = self.output_layer.fwd(transformer_out)
+        return transformer_out, logits
     
     def compute_loss(self, logits, targets):
-        return self.loss_fn(logits, targets)
+        return self.loss_fn.fwd(logits, targets)
     
-    def backward(self, logits, targets):
-        loss_grad = self.loss_fn.backward(logits, targets)
-        grad_to_transformer = self.output_layer.backward(loss_grad)
+    def backward(self, logits, targets, transformer_out):
+        probs = self.output_layer.softmax(logits)
+        loss_grad = self.loss_fn.backward(logits, targets, probs)
+        grad_to_transformer = self.output_layer.backward(loss_grad, transformer_out)
         self.transformer_block.backward(grad_to_transformer)
 
     def step(self):
@@ -54,11 +56,15 @@ class Trainer:
             total_loss = 0
             for token_ids in self.token_ids:
                 self.zero_grad()
-                logits = self.fwd(token_ids)
+                transformer_out, logits = self.fwd(token_ids)
                 targets = token_ids[1:]
-                loss = self.compute_loss(logits[:-1], targets)
+                
+                truncated_transformer_out = transformer_out[:-1]
+                truncated_logits = logits[:-1]
 
-                self.backward(logits[:-1], targets)
+                loss = self.compute_loss(truncated_logits, targets)
+
+                self.backward(truncated_logits, targets, truncated_transformer_out)
                 self.clip_gradients()
                 self.step()
 

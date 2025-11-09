@@ -11,6 +11,8 @@ from transformer.output_layer import OutputLayer
 from training.train import Trainer
 
 def main():
+
+    print("This code is running.")
     # Load tokenizer
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
@@ -24,7 +26,7 @@ def main():
 
     # ]
 
-    max_lines = 5000
+    max_lines = 10
     training_texts = []
 
     with open("/Users/albertlungu/Documents/GitHub/PyGPT/tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
@@ -33,15 +35,26 @@ def main():
                 break
             training_texts.append(line.strip())
 
+    print("="*60) 
+    print("Appended training texts to list")
+    print("="*60)
+
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
         lr = 1e-4
     )
 
+    print("="*60)
+    print("Training model.")
     trainer.train(epochs=10)
+    print("Finished training model.")
+    print("="*60)
 
+    print("Saving checkpoints.")
     trainer.save_checkpoint("artifacts/training_logs.pkl")
+    print("Saved checkpoints.")
+    print("="*60)
 
     # Convert texts to token ids
     token_ids = [tokenizer.encode(text) for text in training_texts]
