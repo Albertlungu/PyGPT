@@ -38,31 +38,31 @@ Rich contextual embeddings that encode information about each token's meaning in
 
 ### Checklist - Initialization:
 
-- [ ] **embedding_layer**: Reference to your EmbeddingLayer instance
-  - [ ] Pass the EmbeddingLayer object
-  - [ ] **What it does**: Provides access to embedding_dim and vocab_size
-  - [ ] Enables weight tying (optional optimization)
+- [x] **embedding_layer**: Reference to your EmbeddingLayer instance
+  - [x] Pass the EmbeddingLayer object
+  - [x] **What it does**: Provides access to embedding_dim and vocab_size
+  - [x] Enables weight tying (optional optimization)
 
-- [ ] **embedding_dim**: Dimension of input embeddings
-  - [ ] Extracted from: `embedding_layer.embedding_dim`
-  - [ ] Typical values: 256, 512, 768, 1024
-  - [ ] **What it does**: Defines input size for the output projection
+- [x] **embedding_dim**: Dimension of input embeddings
+  - [x] Extracted from: `embedding_layer.embedding_dim`
+  - [x] Typical values: 256, 512, 768, 1024
+  - [x] **What it does**: Defines input size for the output projection
 
-- [ ] **vocab_size**: Size of the vocabulary
-  - [ ] Extracted from: `embedding_layer.vocab_size`
-  - [ ] Same size as your tokenizer's vocabulary
-  - [ ] **What it does**: Defines output size (one logit per vocabulary token)
+- [x] **vocab_size**: Size of the vocabulary
+  - [x] Extracted from: `embedding_layer.vocab_size`
+  - [x] Same size as your tokenizer's vocabulary
+  - [x] **What it does**: Defines output size (one logit per vocabulary token)
 
-- [ ] **W_out**: Output projection weight matrix
-  - [ ] Shape: `(embedding_dim, vocab_size)`
-  - [ ] **Option 1 - Weight Tying**: `W_out = embedding_layer.embeddings.T`
-  - [ ] **Option 2 - Separate Weights**: `W_out = np.random.randn(embedding_dim, vocab_size) * 0.01`
-  - [ ] **What it does**: Projects embeddings to vocabulary space
+- [x] **W_out**: Output projection weight matrix
+  - [x] Shape: `(embedding_dim, vocab_size)`
+  - [x] **Option 1 - Weight Tying**: `W_out = embedding_layer.embeddings.T`
+  - [x] **Option 2 - Separate Weights**: `W_out = np.random.randn(embedding_dim, vocab_size) * 0.01`
+  - [x] **What it does**: Projects embeddings to vocabulary space
 
-- [ ] **b_out**: Output bias vector
-  - [ ] Shape: `(vocab_size,)`
-  - [ ] Initialize: `np.zeros(vocab_size)`
-  - [ ] **What it does**: Adds learnable bias to each vocabulary token's logit
+- [x] **b_out**: Output bias vector
+  - [x] Shape: `(vocab_size,)`
+  - [x] Initialize: `np.zeros(vocab_size)`
+  - [x] **What it does**: Adds learnable bias to each vocabulary token's logit
 
 ### Understanding Weight Tying:
 
@@ -110,12 +110,12 @@ Probabilities (batch, seq_len, vocab_size)
 
 ### Step 1: Linear Projection to Vocabulary Space
 
-- [ ] Multiply transformer output with W_out
-  - [ ] Operation: `logits = transformer_output @ W_out + b_out`
-  - [ ] Input shape: `(batch, seq_len, embedding_dim)`
-  - [ ] W_out shape: `(embedding_dim, vocab_size)`
-  - [ ] b_out shape: `(vocab_size,)` - broadcasts across batch and sequence
-  - [ ] Output shape: `(batch, seq_len, vocab_size)`
+- [x] Multiply transformer output with W_out
+  - [x] Operation: `logits = transformer_output @ W_out + b_out`
+  - [x] Input shape: `(batch, seq_len, embedding_dim)`
+  - [x] W_out shape: `(embedding_dim, vocab_size)`
+  - [x] b_out shape: `(vocab_size,)` - broadcasts across batch and sequence
+  - [x] Output shape: `(batch, seq_len, vocab_size)`
 
 **What's happening**: Each token's embedding (size embedding_dim) is projected to a vector of size vocab_size, where each element represents the unnormalized score (logit) for that vocabulary token.
 
@@ -129,25 +129,25 @@ Probabilities (batch, seq_len, vocab_size)
 
 **Note**: Softmax is typically NOT applied during training (loss function handles this). Only use for generating predictions.
 
-- [ ] Implement numerically stable softmax
-- [ ] Input: logits of shape `(batch, seq_len, vocab_size)`
-- [ ] Output: probabilities of shape `(batch, seq_len, vocab_size)`
+- [x] Implement numerically stable softmax
+- [x] Input: logits of shape `(batch, seq_len, vocab_size)`
+- [x] Output: probabilities of shape `(batch, seq_len, vocab_size)`
 
 **Implementation Checklist**:
 
-- [ ] **Subtract max for numerical stability**:
-  - [ ] `max_logits = np.max(logits, axis=-1, keepdims=True)`
-  - [ ] `shifted_logits = logits - max_logits`
-  - [ ] **Why**: Prevents overflow from exp() of large numbers
+- [x] **Subtract max for numerical stability**:
+  - [x] `max_logits = np.max(logits, axis=-1, keepdims=True)`
+  - [x] `shifted_logits = logits - max_logits`
+  - [x] **Why**: Prevents overflow from exp() of large numbers
 
-- [ ] **Compute exponentials**:
-  - [ ] `exp_logits = np.exp(shifted_logits)`
-  - [ ] Shape stays: `(batch, seq_len, vocab_size)`
+- [x] **Compute exponentials**:
+  - [x] `exp_logits = np.exp(shifted_logits)`
+  - [x] Shape stays: `(batch, seq_len, vocab_size)`
 
-- [ ] **Normalize to probabilities**:
-  - [ ] `sum_exp = np.sum(exp_logits, axis=-1, keepdims=True)`
-  - [ ] `probs = exp_logits / sum_exp`
-  - [ ] Verify: Each probability vector sums to 1.0
+- [x] **Normalize to probabilities**:
+  - [x] `sum_exp = np.sum(exp_logits, axis=-1, keepdims=True)`
+  - [x] `probs = exp_logits / sum_exp`
+  - [x] Verify: Each probability vector sums to 1.0
 
 **What's happening**: Converting raw scores (logits) into valid probability distributions. Each position gets a distribution over the entire vocabulary.
 

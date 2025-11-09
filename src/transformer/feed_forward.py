@@ -50,7 +50,7 @@ class FeedForward():
         self.W2 = np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
         self.B2 = np.zeros(self.embedding_dim) # Bias second layer
 
-        self.ff_input = embeddings.forward(token_ids)
+        self.ff_input = embeddings.fwd(token_ids)
         self.hidden_layer = self.ff_input @ self.W1 + self.B1
         
         self.activated_layer = self.GELU(self.hidden_layer)
