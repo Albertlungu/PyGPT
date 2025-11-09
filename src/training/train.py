@@ -1,5 +1,6 @@
 import numpy as np
 import sys, os
+from tqdm import tqdm, trange
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import pickle
 from src.embeddings.embeddings import EmbeddingLayer
@@ -54,7 +55,7 @@ class Trainer:
     def train(self, epochs = 10):
         for epoch in range(epochs):
             total_loss = 0
-            for token_ids in self.token_ids:
+            for token_ids in tqdm(self.token_ids, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
                 self.zero_grad()
                 transformer_out, logits = self.fwd(token_ids)
                 targets = token_ids[1:]
