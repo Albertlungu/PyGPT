@@ -41,6 +41,25 @@ class OutputLayer:
         # print(np.shape(self.logits))
         return self.logits
     
+    def backward(self, d_out):
+        """
+        Backward pass through output layer.
+
+        Args:
+            d_out: Gradient of loss w.r.t output logits (batch, seq_len, vocab_size)
+
+        Returns:
+            Gradient w.r.t input x (batch, seq_len, embedding_dim)
+        """
+        # Gradients w.r.t weights and bias
+        # input: (batch, seq_len, embedding_dim), d_out: (batch, seq_len, vocab_size)
+        self.dW = np.einsum('bse, bsv -> ev', self.input, d_out)  # sum over batch & seq_len
+        self.db = np.sum(d_out, axis=(0, 1), keepdims=True)       # sum over batch & seq_len
+
+        # Gradient w.r.t input to pass to previous layer
+        d_input = d_out @ self.W.T  # shape: (batch, seq_len, embedding_dim)
+        return d_input
+    
     @staticmethod
     def softmax(logits):
         """
