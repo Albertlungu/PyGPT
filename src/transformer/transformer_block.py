@@ -118,8 +118,89 @@ class TransformerBlock:
 
         return self.final_output
 
+    def backward(self, d_out):
+        """
+        Backward pass through the TransformerBlock.
 
+        Args:
+            d_out (3D tensor): Gradient of loss with respect to the final output
+                shape: (batch_size, seq_len, embedding_dim)
 
+        Steps:
+            1. Backprop through residual + feedforward sublayer.
+            2. Backprop through second layer normalization.
+            3. Backprop through attention sublayer and first layer normalization.
+            4. Store gradients for gamma and beta parameters.
+        """
+
+        # ===== Sublayer 2: FeedForward + Residual =====
+        # Gradient w.r.t residual connection
+        d_residual2 = d_out  # Gradient flows to residual
+        d_ff_output = d_out  # Gradient also flows to feedforward output
+
+        # Backprop through feedforward network
+        d_ln2_out = self.ffn.backward(d_ff_output)  # shape: (batch, seq_len, embedding_dim)
+
+        # Add gradient from residual
+        d_ln2_out += d_residual2  # total gradient to ln2 input
+
+        # ===== LayerNorm 2 backward =====
+        d_after_attention, d_gamma2, d_beta2 = self.layer_norm_backward(d_ln2_out, self.after_attention, self.gamma_2, self.beta_2)
+        # Store gradients for gamma and beta
+        self.d_gamma_2 = d_gamma2
+        self.d_beta_2 = d_beta2
+
+        # ===== Sublayer 1: Attention + Residual =====
+        # Gradient flows through residual
+        d_residual1 = d_after_attention
+        # Backprop through attention
+        d_ln1_out = self.attention_layer.backward(d_after_attention)  # shape: (batch, seq_len, embedding_dim)
+
+        # Add gradient from residual
+        d_ln1_out += d_residual1
+
+        # ===== LayerNorm 1 backward =====
+        d_input_embeddings, d_gamma1, d_beta1 = self.layer_norm_backward(d_ln1_out, self.input_embeddings, self.gamma_1, self.beta_1)
+        self.d_gamma_1 = d_gamma1
+        self.d_beta_1 = d_beta1
+
+        # ===== Backprop to embeddings =====
+        self.embedding_layer.backward(d_input_embeddings)  # propagate gradients to embeddings
+
+    def layer_norm_backward(self, d_out, x, gamma, beta, epsilon=1e-5):
+        """
+        Backprop through layer normalization.
+
+        Args:
+            d_out: Gradient of loss w.r.t output of layer norm
+            x: Input to layer norm
+            gamma, beta: parameters
+            epsilon: small value for stability
+
+        Returns:
+            d_x: gradient w.r.t input x
+            d_gamma: gradient w.r.t gamma
+            d_beta: gradient w.r.t beta
+        """
+        N = x.shape[-1]
+        mean = np.mean(x, axis=-1, keepdims=True)
+        var = np.var(x, axis=-1, keepdims=True)
+        std = np.sqrt(var + epsilon)
+        x_norm = (x - mean) / std
+
+        # Gradients w.r.t gamma and beta
+        d_gamma = np.sum(d_out * x_norm, axis=(0, 1))
+        d_beta = np.sum(d_out, axis=(0, 1))
+
+        # Gradient w.r.t normalized input
+        dx_norm = d_out * gamma
+
+        # Backprop through normalization
+        d_var = np.sum(dx_norm * (x - mean) * -0.5 * (var + epsilon)**(-1.5), axis=-1, keepdims=True)
+        d_mean = np.sum(-dx_norm / std, axis=-1, keepdims=True) + d_var * np.mean(-2 * (x - mean), axis=-1, keepdims=True)
+        d_x = dx_norm / std + d_var * 2 * (x - mean) / N + d_mean / N
+
+        return d_x, d_gamma, d_beta
 def main():
 
     embedding_layer = EmbeddingLayer()
