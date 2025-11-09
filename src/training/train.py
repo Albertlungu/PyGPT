@@ -102,12 +102,15 @@ class Trainer:
     def generate(self, prompt, max_length = 50):
         token_ids = self.tokenizer.encode(prompt)
         for _ in range(max_length):
-            logits = self.fwd(token_ids)
+            transformer_out, logits = self.fwd(token_ids)
             next_token = np.argmax(logits[-1])
-            token_ids.append(next_token)
+            # Ensure token is within valid vocab range
+            if next_token >= self.tokenizer.vocab_size:
+                break
+            token_ids.append(int(next_token))
             if next_token == self.tokenizer.eos_token_id:
                 break
-        return self.tokenzer.decode(token_ids)
+        return self.tokenizer.decode(token_ids)
 
 
 # with open(training_path, 'r', encoding="utf-8") as f:

@@ -29,7 +29,7 @@ def main():
     max_lines = 10
     training_texts = []
 
-    with open("/Users/albertlungu/Documents/GitHub/PyGPT/tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
+    with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             if i >= max_lines:
                 break
