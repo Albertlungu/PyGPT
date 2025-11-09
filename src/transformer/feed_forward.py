@@ -44,16 +44,16 @@ class FeedForward():
         self.embedding_dim = EmbeddingLayer.default_embedding_dim
         self.ff_dim = self.embedding_dim * 4 # Feed Forward dimension
 
-        # Layers 
-        self.W1 = np.random.randn(self.embedding_dim, self.ff_dim) * (1/np.sqrt(self.embedding_dim)) # Weight first layer of shape (embedding_dim, ff_dim)
-        self.B1 = np.zeros(self.ff_dim)# Bias first layer
-        self.W2 = np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
-        self.B2 = np.zeros(self.embedding_dim) # Bias second layer
+        # Layers
+        self.W1 = (np.random.randn(self.embedding_dim, self.ff_dim) * (1/np.sqrt(self.embedding_dim))).astype(np.float32) # Weight first layer of shape (embedding_dim, ff_dim)
+        self.B1 = np.zeros(self.ff_dim, dtype=np.float32)# Bias first layer
+        self.W2 = (np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim))).astype(np.float32) # Weight second layer of shape (ff_dim, embedding_dim)
+        self.B2 = np.zeros(self.embedding_dim, dtype=np.float32) # Bias second layer
 
-        self.dW1 = np.zeros_like(self.W1)
-        self.dB1 = np.zeros_like(self.B1)
-        self.dW2 = np.zeros_like(self.W2)
-        self.dB2 = np.zeros_like(self.B2)
+        self.dW1 = np.zeros_like(self.W1, dtype=np.float32)
+        self.dB1 = np.zeros_like(self.B1, dtype=np.float32)
+        self.dW2 = np.zeros_like(self.W2, dtype=np.float32)
+        self.dB2 = np.zeros_like(self.B2, dtype=np.float32)
 
         self.ff_input = embeddings.fwd(token_ids)
         self.hidden_layer = self.ff_input @ self.W1 + self.B1

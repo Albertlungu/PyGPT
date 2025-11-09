@@ -46,15 +46,15 @@ class Attention():
         self.batch_size = embedded.shape[0]  # batch dimension
         self.seq_len = embedded.shape[1]     
 
-        self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_V = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+        self.W_Q = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_K = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_V = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_O = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
 
-        self.dW_Q = np.zeros_like(self.W_Q)
-        self.dW_K = np.zeros_like(self.W_K)
-        self.dW_V = np.zeros_like(self.W_V)
-        self.dW_O = np.zeros_like(self.W_O)
+        self.dW_Q = np.zeros_like(self.W_Q, dtype=np.float32)
+        self.dW_K = np.zeros_like(self.W_K, dtype=np.float32)
+        self.dW_V = np.zeros_like(self.W_V, dtype=np.float32)
+        self.dW_O = np.zeros_like(self.W_O, dtype=np.float32)
 
     @staticmethod
     def softmax(x):

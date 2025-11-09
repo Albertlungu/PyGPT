@@ -24,7 +24,7 @@ class OutputLayer:
 
         self.W_out = embedding_layer.embeddings.T # Weight matrix shape: (embedding_dim, vocab_size)
         # self.W_out = np.random.randn(self.embedding_dim, self.vocab_size) * 0.01
-        self.b_out = np.zeros(self.vocab_size) # Bias vector
+        self.b_out = np.zeros(self.vocab_size, dtype=np.float32) # Bias vector
 
     def fwd(self, transformer_output):
         """

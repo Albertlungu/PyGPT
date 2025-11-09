@@ -36,15 +36,15 @@ class EmbeddingLayer:
         self.max_seq_length = max_seq_length
         self.n = n
 
-        self.embeddings = np.random.randn(self.vocab_size, self.embedding_dim) * np.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
+        self.embeddings = (np.random.randn(self.vocab_size, self.embedding_dim) * np.sqrt(1.0/self.vocab_size)).astype(np.float32) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
         self.positional_encoding_class = PositionalEncoding(self.embedding_dim, self.max_seq_length)
 
-        self.positional_encodings = self.positional_encoding_class._create_positional_encoding(n) # using the function that will be declared later to get the positional encoding of a certain word
+        self.positional_encodings = self.positional_encoding_class._create_positional_encoding(n).astype(np.float32) # using the function that will be declared later to get the positional encoding of a certain word
 
         self.last_input_ids = None # for future backpropagation, storing the last input ID
 
-        self.encoding_gradient = np.zeros_like(self.embeddings) # for future backpropagation, storing the gradient of the encoding
+        self.encoding_gradient = np.zeros_like(self.embeddings, dtype=np.float32) # for future backpropagation, storing the gradient of the encoding
 
     def fwd(self, token_ids):
         """
