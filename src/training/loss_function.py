@@ -30,7 +30,7 @@ class CrossEntropyLoss:
             targets (np.ndarray): The true "next-token" index that the model is supposed to predict. Shape: (batch, seq_len)
 
         Returns:
-            np.float64: Loss of my model I guess
+            np.float32: Loss of my model I guess
 
         Raises:
             TypeError
@@ -85,7 +85,7 @@ class CrossEntropyLoss:
             probs (np.ndarray): The probabilities calculated from the softmax of the logits from the OutputLayer class
 
         Returns:
-            np.ndarray of shape (batch_size, seq_len, vocab_size), dtype np.float64: 
+            np.ndarray of shape (batch_size, seq_len, vocab_size), dtype np.float32:
                 The gradient of the cross-entropy loss with respect to the logits. Each element represents how much the loss would increase or decrease if the corresponding logit were increased by a small amount. This gradient is used to propagate errors backward through the network during training.
         """
         targets = np.array(targets)
