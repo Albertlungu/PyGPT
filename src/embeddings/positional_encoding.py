@@ -27,10 +27,10 @@ class PositionalEncoding:
         # return P
         
         L, d = self.max_seq_length, self.embedding_dim
-        pos = np.arange(L)[:, np.newaxis]
-        i = np.arange(d)[np.newaxis, :]
+        pos = np.arange(L, dtype=np.float32)[:, np.newaxis]
+        i = np.arange(d, dtype=np.float32)[np.newaxis, :]
         angle_rates = 1 / np.power(n, (2 * (i//2)) / d)
         P = pos * angle_rates
         P[:, 0::2] = np.sin(P[:, 0::2])
         P[:, 1::2] = np.cos(P[:, 1::2])
-        return P
+        return P.astype(np.float32)

@@ -45,12 +45,12 @@ class TransformerBlock:
         self.input_embeddings = self.embedding_layer.fwd(self.token_ids)
 
         # First normalization: layer normalization 1 scale. Makes learnable scaling after normalization
-        self.gamma_1 = np.ones(self.embedding_dim)
+        self.gamma_1 = np.ones(self.embedding_dim, dtype=np.float32)
         # First normalization: layer norm shift param. Makes learnable offset after normalization
-        self.beta_1 = np.zeros(self.embedding_dim)
+        self.beta_1 = np.zeros(self.embedding_dim, dtype=np.float32)
 
-        self.gamma_2 = np.ones(self.embedding_dim)
-        self.beta_2 = np.zeros(self.embedding_dim)
+        self.gamma_2 = np.ones(self.embedding_dim, dtype=np.float32)
+        self.beta_2 = np.zeros(self.embedding_dim, dtype=np.float32)
 
 
         self.d_gamma_1 = np.zeros_like(self.gamma_1)

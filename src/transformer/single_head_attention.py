@@ -46,10 +46,10 @@ class Attention():
         self.batch_size = embedded.shape[0]  # batch dimension
         self.seq_len = embedded.shape[1]     
 
-        self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_V = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
-        self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+        self.W_Q = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_K = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_V = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
+        self.W_O = (np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01).astype(np.float32)
 
         self.dW_Q = np.zeros_like(self.W_Q)
         self.dW_K = np.zeros_like(self.W_K)
@@ -99,7 +99,7 @@ class Attention():
         self.scaled_scores = self.attention_scores / np.sqrt(self.embedding_dim)
 
         # Applying a mask of shape (batch, seq_len, seq_len)
-        mask = np.tril(np.ones((self.batch_size, self.seq_len, self.seq_len)))
+        mask = np.tril(np.ones((self.batch_size, self.seq_len, self.seq_len), dtype=np.float32))
         self.masked_scores = np.where(mask == 0, -1e9, self.scaled_scores)
 
         # Applying softmax function to masked scores
@@ -154,7 +154,7 @@ class Attention():
         seq_len = attention_weights_fwd.shape[1]
 
         # Apply mask: masked positions do not backprop
-        mask = np.tril(np.ones((seq_len, seq_len)))
+        mask = np.tril(np.ones((seq_len, seq_len), dtype=np.float32))
         d_scaled_scores = d_masked_scores * mask
 
         # Gradient through scaling
