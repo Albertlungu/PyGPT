@@ -135,7 +135,7 @@ class Attention():
         """
         # Gradient through output projection
         # output = attention_output @ W_O
-        self.dW_O = attention_output_fwd.transpose(0, 2, 1) @ d_output
+        self.dW_O = np.sum(attention_output_fwd.transpose(0, 2, 1) @ d_output, axis=0)
         d_attention_output = d_output @ self.W_O.T
 
         # Gradient through attention weights multiplication
@@ -146,28 +146,32 @@ class Attention():
         # Backprop through softmax
         # attention_weights = softmax(masked_scores)
         d_masked_scores = np.empty_like(attention_weights_fwd)
-        for b in range(self.batch_size):
-            for i in range(self.seq_len):
+        batch_size = attention_weights_fwd.shape[0]
+        seq_len = attention_weights_fwd.shape[1]
+        for b in range(batch_size):
+            for i in range(seq_len):
                 # softmax derivative: J = diag(p) - p p^T
                 p = attention_weights_fwd[b, i, :].reshape(-1, 1)
                 J = np.diagflat(p) - p @ p.T
                 d_masked_scores[b, i, :] = J @ d_attention_weights[b, i, :]
 
         # Apply mask: masked positions do not backprop
-        mask = np.tril(np.ones((self.seq_len, self.seq_len)))
+        mask = np.tril(np.ones((seq_len, seq_len)))
         d_scaled_scores = d_masked_scores * mask
 
         # Gradient through scaling
         d_attention_scores = d_scaled_scores / np.sqrt(self.embedding_dim)
 
         # Gradient through Q @ K^T
+        # Compute Q from input_tensor to match batch size
+        Q = input_tensor @ self.W_Q
         dQ = d_attention_scores @ K_fwd
-        dK = d_attention_scores.transpose(0, 2, 1) @ self.Q
+        dK = d_attention_scores.transpose(0, 2, 1) @ Q
 
         # Gradients w.r.t. weights
-        self.dW_Q = input_tensor.transpose(0, 2, 1) @ dQ
-        self.dW_K = input_tensor.transpose(0, 2, 1) @ dK
-        self.dW_V = input_tensor.transpose(0, 2, 1) @ dV
+        self.dW_Q = np.sum(input_tensor.transpose(0, 2, 1) @ dQ, axis=0)
+        self.dW_K = np.sum(input_tensor.transpose(0, 2, 1) @ dK, axis=0)
+        self.dW_V = np.sum(input_tensor.transpose(0, 2, 1) @ dV, axis=0)
 
         # Gradient w.r.t input embeddings
         dX = dQ @ self.W_Q.T + dK @ self.W_K.T + dV @ self.W_V.T
