@@ -52,26 +52,43 @@ class Trainer:
         for param in params:
             param['value'] -= self.lr * param['grad']
 
-    def train(self, epochs = 10):
+    def train(self, epochs=10, batch_size=16):
         for epoch in range(epochs):
             total_loss = 0
-            for token_ids in tqdm(self.token_ids, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
+            batches = self.create_batches(batch_size)
+            
+            for batch_token_ids, lengths in batches:
                 self.zero_grad()
-                transformer_out, logits = self.fwd(token_ids)
-                targets = token_ids[1:]
                 
-                truncated_transformer_out = transformer_out[:-1]
-                truncated_logits = logits[:-1]
-
-                loss = self.compute_loss(truncated_logits, targets)
-
-                self.backward(truncated_logits, targets, truncated_transformer_out)
+                # Reinitialize transformer_block for this batch
+                self.transformer_block = TransformerBlock(batch_token_ids, self.embedding_layer)
+                
+                transformer_out, logits = self.fwd(batch_token_ids)
+                
+                # Compute loss for each sequence in batch
+                batch_loss = 0
+                for b in range(len(batch_token_ids)):
+                    seq_len = lengths[b]
+                    targets = batch_token_ids[b][1:seq_len]
+                    seq_logits = logits[b, :seq_len-1, :]
+                    seq_transformer_out = transformer_out[b, :seq_len-1, :]
+                    
+                    loss = self.compute_loss(seq_logits, targets)
+                    batch_loss += loss
+                
+                # Average loss over batch
+                batch_loss /= len(batch_token_ids)
+                
+                # Backward pass with averaged gradients
+                self.backward(logits[:, :-1, :], batch_token_ids, transformer_out[:, :-1, :])
                 self.clip_gradients()
                 self.step()
+                
+                total_loss += batch_loss
+            
+            avg_loss = total_loss / len(batches)
+            print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}")
 
-                total_loss += loss
-            avg_loss = total_loss / len(self.token_ids)
-            print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss: .4f}")
 
     def collect_params(self):
         params = []
@@ -112,6 +129,37 @@ class Trainer:
             if next_token == self.tokenizer.eos_token_id:
                 break
         return self.tokenizer.decode(token_ids)
+    
+
+    def create_batches(self, batch_size=16):
+        """
+        Create batches of sequences with padding.
+        
+        Returns:
+            List of batches, where each batch is (padded_token_ids, lengths)
+        """
+        import random
+        random.shuffle(self.token_ids)
+        
+        batches = []
+        for i in range(0, len(self.token_ids), batch_size):
+            batch_sequences = self.token_ids[i:i + batch_size]
+            
+            # Find max length in this batch
+            max_len = max(len(seq) for seq in batch_sequences)
+            
+            # Pad sequences to max_len
+            padded_batch = []
+            lengths = []
+            for seq in batch_sequences:
+                padded = seq + [0] * (max_len - len(seq))  # Pad with 0
+                padded_batch.append(padded)
+                lengths.append(len(seq))
+            
+            batches.append((padded_batch, lengths))
+        
+        return batches
+
 
 
 # with open(training_path, 'r', encoding="utf-8") as f:
