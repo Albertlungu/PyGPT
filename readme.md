@@ -136,4 +136,4 @@ flowchart TD
 - [x] Loss Function
 - [ ] Optimization (optional)
 - [ ] Training
-- [ ] React + Next.js + Tailwind CSS
+- [ ] React + Next.js + Tailwind CSS Frontend

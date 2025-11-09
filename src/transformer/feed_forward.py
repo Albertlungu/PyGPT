@@ -132,7 +132,14 @@ class FeedForward():
         self.B1 -= learning_rate * dB1
 
         return dx
-
+    
+    def get_params_and_grads(self):
+        return [
+            {'value': self.W1, 'grad': self.dW1},
+            {'value': self.B1, 'grad': self.dB1},
+            {'value': self.W2, 'grad': self.dW2},
+            {'value': self.B2, 'grad': self.dB2},
+        ]
 
 def main():
 
