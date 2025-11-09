@@ -132,8 +132,8 @@ flowchart TD
 - [x] Attention module (single head)
 - [ ] Multi-head attention (optional)
 - [x] Transformer Block
-- [ ] Output Layer
-- [ ] Loss Function
-- [ ] Optimization
+- [x] Output Layer
+- [x] Loss Function
+- [ ] Optimization (optional)
 - [ ] Training
 - [ ] React + Next.js + Tailwind CSS

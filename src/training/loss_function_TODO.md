@@ -123,15 +123,15 @@ We'll cover **both** approaches below.
 
 The CrossEntropyLoss class typically doesn't need parameters to initialize, but you may want:
 
-- [ ] **ignore_index**: Token ID to ignore in loss computation (optional)
-  - [ ] Default: -1 or None
-  - [ ] Use case: Ignore padding tokens
-  - [ ] **What it does**: Doesn't compute loss for positions with this token ID
+- [x] **ignore_index**: Token ID to ignore in loss computation (optional)
+  - [x] Default: -1 or None
+  - [x] Use case: Ignore padding tokens
+  - [x] **What it does**: Doesn't compute loss for positions with this token ID
 
-- [ ] **reduction**: How to aggregate loss values (optional)
-  - [ ] Options: "mean" (average over all positions) or "sum"
-  - [ ] Default: "mean"
-  - [ ] **What it does**: Controls output: single number vs per-sample loss
+- [x] **reduction**: How to aggregate loss values (optional)
+  - [x] Options: "mean" (average over all positions) or "sum"
+  - [x] Default: "mean"
+  - [x] **What it does**: Controls output: single number vs per-sample loss
 
 ---
 
@@ -139,11 +139,11 @@ The CrossEntropyLoss class typically doesn't need parameters to initialize, but 
 
 ### Step 1: Extract Shape Information
 
-- [ ] Get batch_size, seq_len, vocab_size from logits shape
-  - [ ] `batch_size, seq_len, vocab_size = logits.shape`
+- [x] Get batch_size, seq_len, vocab_size from logits shape
+  - [x] `batch_size, seq_len, vocab_size = logits.shape`
 
-- [ ] Verify targets shape matches `(batch_size, seq_len)`
-  - [ ] Targets should be integers in range [0, vocab_size-1]
+- [x] Verify targets shape matches `(batch_size, seq_len)`
+  - [x] Targets should be integers in range [0, vocab_size-1]
 
 **Variable names**:
 - **logits**: Predictions from model, shape `(batch, seq_len, vocab_size)`
@@ -159,21 +159,21 @@ $$\text{log\_softmax}(x_i) = x_i - \log(\sum_j \exp(x_j))$$
 
 **Implementation Checklist**:
 
-- [ ] **Subtract max for stability**:
-  - [ ] `max_logits = np.max(logits, axis=-1, keepdims=True)`
-  - [ ] `shifted_logits = logits - max_logits`
-  - [ ] Shape: `(batch, seq_len, vocab_size)`
+- [x] **Subtract max for stability**:
+  - [x] `max_logits = np.max(logits, axis=-1, keepdims=True)`
+  - [x] `shifted_logits = logits - max_logits`
+  - [x] Shape: `(batch, seq_len, vocab_size)`
 
-- [ ] **Compute log-sum-exp**:
-  - [ ] `exp_logits = np.exp(shifted_logits)`
-  - [ ] `sum_exp = np.sum(exp_logits, axis=-1, keepdims=True)`
-  - [ ] `log_sum_exp = np.log(sum_exp)`
-  - [ ] Shape of log_sum_exp: `(batch, seq_len, 1)`
+- [x] **Compute log-sum-exp**:
+  - [x] `exp_logits = np.exp(shifted_logits)`
+  - [x] `sum_exp = np.sum(exp_logits, axis=-1, keepdims=True)`
+  - [x] `log_sum_exp = np.log(sum_exp)`
+  - [x] Shape of log_sum_exp: `(batch, seq_len, 1)`
 
-- [ ] **Compute log probabilities**:
-  - [ ] `log_probs = shifted_logits - log_sum_exp`
-  - [ ] Shape: `(batch, seq_len, vocab_size)`
-  - [ ] Each log_probs[b, s, :] represents log probabilities at position s
+- [x] **Compute log probabilities**:
+  - [x] `log_probs = shifted_logits - log_sum_exp`
+  - [x] Shape: `(batch, seq_len, vocab_size)`
+  - [x] Each log_probs[b, s, :] represents log probabilities at position s
 
 **What's happening**: Computing the log of probabilities without actually computing probabilities (more stable!).
 
