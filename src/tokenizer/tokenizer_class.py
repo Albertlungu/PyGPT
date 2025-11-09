@@ -53,6 +53,10 @@ class BPETokenizer:
         for (p0,p1), idx in self.merges.items():
             self.vocab[idx] = self.vocab[p0] + self.vocab[p1]
         self._ensure_vocab()
+        
+        self.eos_token_id = self.vocab_size
+        self.vocab[self.eos_token_id] = "b<EOS>"
+        self.vocab_size += 1
 
     def _rebuild_vocab(self):
         """
@@ -181,7 +185,7 @@ if __name__ == "__main__":
     # print(list(tokens)[:100])
 
     # Variable declaration (params for tokenizer class)
-    dataset_length = len(tokens)//500 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
+    dataset_length = len(tokens)//1000 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
     vocab_size = 5000
     print("Set dataset length and vocab size")

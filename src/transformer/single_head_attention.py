@@ -107,8 +107,15 @@ class Attention():
         # Final output projection
         self.output = self.attention_output @ self.W_O
         return self.output
-
     
+    def get_params_and_grads(self):
+        return [
+            {'value': self.W_Q, 'grad': self.dW_Q},
+            {'value': self.W_K, 'grad': self.dW_K},
+            {'value': self.W_V, 'grad': self.dW_V},
+            {'value': self.W_O, 'grad': self.dW_O},
+        ]
+
 def main():
     # Test the attention class
     embedding_layer = EmbeddingLayer()

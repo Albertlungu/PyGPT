@@ -94,7 +94,9 @@ class OutputLayer:
         probs = self.softmax(scaled_logits)
         predicted_tokens = np.argmax(probs, axis = -1)
         return predicted_tokens
-        
+    
+    def get_params_and_grads(self): # TODO: Make this function use W and b
+        return [{'value': self.weights, 'grad': self.d_weights}]
 
         
     

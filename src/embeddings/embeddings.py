@@ -146,6 +146,9 @@ class EmbeddingLayer:
             self.max_seq_length = data['max_seq_length']
             self.positional_encodings = self._create_positional_encoding()
 
+    def get_params_and_grads(self):
+        return [{'value': self.embeddings, 'grad': self.encoding_gradient}]
+
 
 def main():
     # print("="*60)

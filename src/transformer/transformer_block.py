@@ -201,6 +201,25 @@ class TransformerBlock:
         d_x = dx_norm / std + d_var * 2 * (x - mean) / N + d_mean / N
 
         return d_x, d_gamma, d_beta
+    
+    def get_params_and_grads(self):
+        params = []
+
+        # Collect params from attention and feedforward submodules
+        params.extend(self.attention_layer.get_params_and_grads())
+        params.extend(self.ffn.get_params_and_grads())
+
+        # Include gamma and beta from both layer norms
+        params.extend([
+            {'value': self.gamma_1, 'grad': self.d_gamma_1},
+            {'value': self.beta_1,  'grad': self.d_beta_1},
+            {'value': self.gamma_2, 'grad': self.d_gamma_2},
+            {'value': self.beta_2,  'grad': self.d_beta_2},
+        ])
+
+        return params
+
+
 def main():
 
     embedding_layer = EmbeddingLayer()
