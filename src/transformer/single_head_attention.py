@@ -143,17 +143,15 @@ class Attention():
         d_attention_weights = d_attention_output @ V_fwd.transpose(0, 2, 1)
         dV = attention_weights_fwd.transpose(0, 2, 1) @ d_attention_output
 
-        # Backprop through softmax
+        # Backprop through softmax (vectorized version for performance)
         # attention_weights = softmax(masked_scores)
-        d_masked_scores = np.empty_like(attention_weights_fwd)
+        # Vectorized softmax gradient: dL/dx = p * (dL/dp - sum(p * dL/dp))
+        # This is mathematically equivalent to the Jacobian version but much faster
+        d_masked_scores = attention_weights_fwd * (
+            d_attention_weights - np.sum(d_attention_weights * attention_weights_fwd, axis=-1, keepdims=True)
+        )
         batch_size = attention_weights_fwd.shape[0]
         seq_len = attention_weights_fwd.shape[1]
-        for b in range(batch_size):
-            for i in range(seq_len):
-                # softmax derivative: J = diag(p) - p p^T
-                p = attention_weights_fwd[b, i, :].reshape(-1, 1)
-                J = np.diagflat(p) - p @ p.T
-                d_masked_scores[b, i, :] = J @ d_attention_weights[b, i, :]
 
         # Apply mask: masked positions do not backprop
         mask = np.tril(np.ones((seq_len, seq_len)))
