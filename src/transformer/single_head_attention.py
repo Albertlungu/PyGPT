@@ -44,7 +44,7 @@ class Attention():
         embedded = embedding_layer.fwd(token_ids)
         self.input = embedded
         self.batch_size = embedded.shape[0]  # batch dimension
-        self.seq_len = embedded.shape[1]     
+        self.seq_len = embedded.shape[1]
 
         self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
         self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
@@ -99,8 +99,15 @@ class Attention():
         self.scaled_scores = self.attention_scores / np.sqrt(self.embedding_dim)
 
         # Applying a mask of shape (batch, seq_len, seq_len)
-        mask = np.tril(np.ones((self.batch_size, self.seq_len, self.seq_len)))
-        self.masked_scores = np.where(mask == 0, -1e9, self.scaled_scores)
+        # Cache the mask to avoid recreating it every forward pass
+        if not hasattr(self, '_cached_mask_value') or self._cached_mask_value.shape != (self.batch_size, self.seq_len, self.seq_len):
+            # Create lower triangular mask once
+            mask = np.tril(np.ones((self.batch_size, self.seq_len, self.seq_len)))
+            # Pre-compute the additive mask: 0 where we keep values, -1e9 where we mask
+            self._cached_mask_value = np.where(mask == 0, -1e9, 0.0)
+
+        # Apply mask by addition (much faster than np.where every time)
+        self.masked_scores = self.scaled_scores + self._cached_mask_value
 
         # Applying softmax function to masked scores
         self.attention_weights = self.softmax(self.masked_scores)
@@ -154,17 +161,19 @@ class Attention():
         seq_len = attention_weights_fwd.shape[1]
 
         # Apply mask: masked positions do not backprop
-        mask = np.tril(np.ones((seq_len, seq_len)))
-        d_scaled_scores = d_masked_scores * mask
+        # Cache the backward mask as well
+        if not hasattr(self, '_cached_backward_mask') or self._cached_backward_mask.shape != (seq_len, seq_len):
+            self._cached_backward_mask = np.tril(np.ones((seq_len, seq_len)))
+        d_scaled_scores = d_masked_scores * self._cached_backward_mask
 
         # Gradient through scaling
         d_attention_scores = d_scaled_scores / np.sqrt(self.embedding_dim)
 
         # Gradient through Q @ K^T
         # Compute Q from input_tensor to match batch size
-        Q = input_tensor @ self.W_Q
+
         dQ = d_attention_scores @ K_fwd
-        dK = d_attention_scores.transpose(0, 2, 1) @ Q
+        dK = d_attention_scores.transpose(0, 2, 1) @ self.Q
 
         # Gradients w.r.t. weights
         self.dW_Q = np.sum(input_tensor.transpose(0, 2, 1) @ dQ, axis=0)
