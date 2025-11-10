@@ -171,9 +171,7 @@ class BPETokenizer:
             tokens = self.merge(tokens, pair, idx)
         return tokens
 
-if __name__ == "__main__":
-
-
+def main():
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
@@ -206,3 +204,24 @@ if __name__ == "__main__":
 
     # with open('artifacts/tokenizer.pkl', 'rb') as f:
     #     tokenizer = pickle.load(f) # loading the tokenizer object from the pickle file
+
+def test_tokenizer(path):
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+
+    training_texts = []
+    with open(path, "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            training_texts.append(line.strip())
+    
+
+    ids = []
+    for i in training_texts:
+        ids.append(tokenizer.encode(i))
+
+    print(ids)
+
+if __name__ == "__main__":
+    # main()
+    test_tokenizer("tokenizer_training_data/alpaca_sample_utf8.txt")
