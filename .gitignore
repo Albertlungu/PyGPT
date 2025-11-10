@@ -1,6 +1,6 @@
 *.xml
 *.pkl
-all_wiki_text.txt
+*.txt
 
 **/*.pyc
 tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242
