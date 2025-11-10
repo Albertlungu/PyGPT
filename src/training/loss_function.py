@@ -67,7 +67,10 @@ class CrossEntropyLoss:
         num_valid = np.sum(valid_mask)
 
         if self.reduction == 'mean':
-            loss = np.sum(masked_loss)/num_valid
+            if num_valid == 0:
+                loss = 0.0
+            else:
+                loss = np.sum(masked_loss)/num_valid
         elif self.reduction == 'sum':
             loss = np.sum(masked_loss)
         else: 
@@ -103,7 +106,7 @@ class CrossEntropyLoss:
         d_logits = d_logits / (batch_size * seq_len)
 
         if self.ignore_index is not None:
-            mask = targets != self.ignore_index
-            d_logits = d_logits * mask[:, :, None]  # broadcast mask over vocab dimension
+            mask = (targets != self.ignore_index).reshape(batch_size, seq_len, 1)
+            d_logits = d_logits * mask  # broadcast mask over vocab dimension
 
         return d_logits

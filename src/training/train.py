@@ -1,6 +1,7 @@
 import numpy as np
 import sys, os
 from tqdm import tqdm, trange
+import time as t
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import pickle
 from src.embeddings.embeddings import EmbeddingLayer
@@ -18,6 +19,7 @@ class Trainer:
             ids = tokenizer.encode(text)
             ids.append(tokenizer.eos_token_id)
             self.token_ids.append(ids)
+        print(self.tokenizer.decode(self.token_ids[1]))
 
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
@@ -52,24 +54,51 @@ class Trainer:
         for param in params:
             param['value'] -= self.lr * param['grad']
 
-    def train(self, epochs = 10):
+    def train(self, epochs = 10, batch_size = 100):
+        
+        batches = self.create_batches(batch_size)
+
         for epoch in range(epochs):
             total_loss = 0
-            for token_ids in tqdm(self.token_ids, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
+            for batch in tqdm(self.token_ids, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
+                start_time = t.time()
                 self.zero_grad()
-                transformer_out, logits = self.fwd(token_ids)
-                targets = token_ids[1:]
+                time_zero_grad = t.time()-start_time
+
+
+                start_fwd = t.time()
+                for batch in batches:
+                    transformer_out, logits = self.fwd(batch)
+                time_fwd = t.time() - start_fwd
+
+
+                start_loss = t.time()
+                targets = batch[1:]
                 
                 truncated_transformer_out = transformer_out[:-1]
                 truncated_logits = logits[:-1]
 
                 loss = self.compute_loss(truncated_logits, targets)
+                time_loss = t.time() - start_loss
 
+
+                start_bwd = t.time()
                 self.backward(truncated_logits, targets, truncated_transformer_out)
+                time_bwd = t.time() - start_bwd
+
+                start_step = t.time()
                 self.clip_gradients()
                 self.step()
+                time_step = t.time() - start_step
 
+
+                total_time = t.time() - start_time
                 total_loss += loss
+
+            print(f"ZeroGrad: {time_zero_grad:.4f}s, Fwd: {time_fwd:.4f}s, "
+                f"Loss: {time_loss:.4f}s, Bwd: {time_bwd:.4f}s, Step: {time_step:.4f}s, "
+                f"Total: {total_time:.4f}s")
+            
             avg_loss = total_loss / len(self.token_ids)
             print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss: .4f}")
 
@@ -112,6 +141,15 @@ class Trainer:
             if next_token == self.tokenizer.eos_token_id:
                 break
         return self.tokenizer.decode(token_ids)
+    
+    def create_batches(self, batch_size = 100):
+        batches = []
+        for i in range(0, len(self.token_ids), batch_size):
+            batch = self.token_ids[i:i+batch_size]
+            max_len = max(len(seq) for seq in batch)
+            padded_batches = [seq+[self.tokenizer.eos_token_id] * (max_len - len(seq)) for seq in batch]
+            batches.append(np.array(padded_batches))
+        return batches
 
 
 # with open(training_path, 'r', encoding="utf-8") as f:

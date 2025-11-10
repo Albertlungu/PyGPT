@@ -1,17 +1,15 @@
 import numpy as np
 import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import src.utils.config
 import time
 import pickle
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from datasets import load_dataset
+
+import src.utils.config
 from embeddings.embeddings import EmbeddingLayer
-from transformer.feed_forward import FeedForward
-from transformer.single_head_attention import Attention
 from tokenizer.tokenizer_class import BPETokenizer
-from transformer.transformer_block import TransformerBlock
-from transformer.output_layer import OutputLayer
 from training.train import Trainer
 
 def main():
@@ -30,17 +28,34 @@ def main():
 
     # ]
 
-    max_lines = 10
-    training_texts =[]
+    max_lines = 5
+    dataset = load_dataset("tatsu-lab/alpaca")
 
-    with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
-        for i, line in enumerate(tqdm(f, total=max_lines, desc = "Loading texts...")):
-            if i >= max_lines:
-                break
+    train_data = dataset["train"]
+    train_data = train_data.select(range(max_lines))
+
+    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
+    #     for ex in train_data:
+    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+    #         f.write(text + "\n")
+
+
+    training_texts = []
+    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
             training_texts.append(line.strip())
+
+    # training_data = train_data.select(range(max_lines))
+
+    # with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
+    #     for i, line in enumerate(tqdm(f, total=max_lines, desc = "Loading texts...")):
+    #         if i >= max_lines:
+    #             break
+    #         training_texts.append(line.strip())
 
     print("="*60) 
     print("Appended training texts to list")
+    
     print("="*60)
 
     trainer = Trainer(
@@ -51,14 +66,21 @@ def main():
 
     print("="*60)
     print("Training model.")
-    trainer.train(epochs=10)
+    train_time = time.time()
+    trainer.train(epochs=1)
+    end_train = time.time() - train_time
     print("Finished training model.")
     print("="*60)
 
     print("Saving checkpoints.")
+    check_time = time.time()
     trainer.save_checkpoint("artifacts/training_logs.pkl")
+    end_check = time.time() - check_time
     print("Saved checkpoints.")
     print("="*60)
+
+
+    print(f"Train time: {end_train:.4f}\nCheckpoint time: {end_check:.4f}")
 
     # Convert texts to token ids
     token_ids = [tokenizer.encode(text) for text in training_texts]
@@ -93,6 +115,7 @@ if __name__ == "__main__":
 # # Wrap your main logic in a function with max_lines parameter
 # def run_training(max_lines):
 #     # Load tokenizer
+
 #     with open("artifacts/tokenizer.pkl", "rb") as f:
 #         tokenizer = pickle.load(f)
 #         tokenizer._ensure_vocab()
