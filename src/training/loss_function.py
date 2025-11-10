@@ -57,6 +57,9 @@ class CrossEntropyLoss:
 
         log_probs = shifted_logits - log_sum_exp
 
+        # Clip targets to valid vocabulary range
+        targets = np.clip(targets, 0, self.vocab_size - 1)
+
         selected_log_probs = log_probs[np.arange(len(targets)), targets]
 
         neg_log_prob = -selected_log_probs
