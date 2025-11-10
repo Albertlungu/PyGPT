@@ -139,4 +139,4 @@ flowchart TD
 - [ ] React + Next.js + Tailwind CSS Frontend
 
 
-O(n) = 1.1 × 10⁷ × max_lines
+O(n) = 1.1 × 10⁷ × max_lines# trigger cache refresh
