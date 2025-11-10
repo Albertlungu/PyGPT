@@ -136,6 +136,7 @@ flowchart TD
 - [x] Loss Function
 - [ ] Optimization (optional)
 - [x] Training
+- [ ] Add readme files for each part of the model for understanding
 - [ ] React + Next.js + Tailwind CSS Frontend
 
 
