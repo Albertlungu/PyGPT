@@ -107,7 +107,7 @@ class Trainer:
             token_ids.append(next_token)
             if next_token == self.tokenizer.eos_token_id:
                 break
-        return self.tokenzer.decode(token_ids)
+        return self.tokenizer.decode(token_ids)
 
 
 # with open(training_path, 'r', encoding="utf-8") as f:
