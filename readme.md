@@ -136,6 +136,9 @@ flowchart TD
 - [x] Loss Function
 - [ ] Optimization (optional)
 - [x] Training
+- [ ] Use JAX to use GPU for faster processing times
+- [ ] Change from a predictive text model to an instructional style chatbot (SFT).
+  - [ ] Change dataset type. Reference [this](https://huggingface.co/datasets/tatsu-lab/alpaca)
 - [ ] Add readme files for each part of the model for understanding
 - [ ] React + Next.js + Tailwind CSS Frontend
 
