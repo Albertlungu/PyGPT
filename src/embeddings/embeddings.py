@@ -105,11 +105,10 @@ class EmbeddingLayer:
 
         gradient = gradient * np.sqrt(self.embedding_dim) # scaling it down in backward pass because we did this in forward pass
         batch_size, seq_len, _ = gradient.shape
-        
-        for b in range(batch_size):
-            for s in range(seq_len):
-                token_id = self.last_input_ids[b,s]
-                self.encoding_gradient[token_id] += gradient[b,s]
+
+        flat_ids = self.last_input_ids.flatten()
+        flat_grads = gradient.reshape(-1, gradient.shape[-1])
+        np.add.at(self.encoding_gradient, flat_ids, flat_grads)
 
         return self.encoding_gradient
     

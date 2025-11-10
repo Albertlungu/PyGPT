@@ -12,7 +12,7 @@ from embeddings.embeddings import EmbeddingLayer
 from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
-def main():
+def train():
 
     print("This code is running.")
     # Load tokenizer
@@ -28,7 +28,7 @@ def main():
 
     # ]
 
-    max_lines = 5
+    max_lines = 10
     dataset = load_dataset("tatsu-lab/alpaca")
 
     train_data = dataset["train"]
@@ -45,7 +45,7 @@ def main():
         for i, line in enumerate(f):
             training_texts.append(line.strip())
 
-    # training_data = train_data.select(range(max_lines))
+    training_data = train_data.select(range(max_lines))
 
     # with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
     #     for i, line in enumerate(tqdm(f, total=max_lines, desc = "Loading texts...")):
@@ -67,14 +67,14 @@ def main():
     print("="*60)
     print("Training model.")
     train_time = time.time()
-    trainer.train(epochs=1)
+    trainer.train(epochs=10, batch_size=20)
     end_train = time.time() - train_time
     print("Finished training model.")
     print("="*60)
 
     print("Saving checkpoints.")
     check_time = time.time()
-    trainer.save_checkpoint("artifacts/training_logs.pkl")
+    trainer.save_checkpoint("artifacts/training_logs/training_logs_20l_10_11_2025.pkl")
     end_check = time.time() - check_time
     print("Saved checkpoints.")
     print("="*60)
@@ -94,16 +94,32 @@ def main():
     )
     embeddings = embedding_layer.fwd(token_ids)
 
-    prompt = "Once upon a time: "
+    prompt = "What is 5+5?"
+    generated_text = trainer.generate(prompt, max_length = 50)
+    print("Generated: \n", generated_text)
+
+def main():
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+    
+    dummy_input = ["dummy"]
+    trainer = Trainer(tokenizer, dummy_input)
+
+    trainer.load_checkpoint("artifacts/training_logs/training_logs_20l_10_11_2025.pkl")
+
+    prompt = "Once upon a time "
     generated_text = trainer.generate(prompt, max_length = 50)
     print("Generated: \n", generated_text)
 
 if __name__ == "__main__":
     start = time.time()
-    main()
+    train()
     end = time.time()
     print("="*60)
     print(f"Execution time: {end-start:.4f} s")
+
+    # main()
 
 
 
