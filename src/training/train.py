@@ -90,11 +90,11 @@ class Trainer:
         for param in self.collect_params():
             np.clip(param['grad'], -clip_value, clip_value, out = param['grad'])
 
-    def save_checkpoint(self, path="artifacts/training_logs.pkl"):
+    def save_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
         with open(path, "wb") as f:
             pickle.dump(self.collect_params(), f)
     
-    def load_checkpoint(self, path = "artifacts/training_logs.pkl"):
+    def load_checkpoint(self, path = "artifacts/training_logstraining_logs.pkl"):
         with open(path, "rb") as f:
             saved_params = pickle.load(f)
         for p, saved in zip(self.collect_params(), saved_params):

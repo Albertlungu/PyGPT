@@ -35,7 +35,7 @@ class CrossEntropyLoss:
         Raises:
             TypeError
         """
-        targets = np.array(targets)
+        targets = np.array(targets, dtype = np.int32)
 
         self.batch_size, self.seq_len, self.vocab_size = logits.shape
 
@@ -88,7 +88,7 @@ class CrossEntropyLoss:
             np.ndarray of shape (batch_size, seq_len, vocab_size), dtype np.float64: 
                 The gradient of the cross-entropy loss with respect to the logits. Each element represents how much the loss would increase or decrease if the corresponding logit were increased by a small amount. This gradient is used to propagate errors backward through the network during training.
         """
-        targets = np.array(targets)
+        targets = np.array(targets, dtype=np.int32)
 
         batch_size, seq_len, vocab_size = logits.shape
 
