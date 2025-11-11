@@ -1,4 +1,4 @@
+datasets==4.4.1
+matplotlib==3.10.7
 numpy==2.3.4
-tqdm==4.65.0
-matplotlib==3.8.0
-pandas==2.1.0
+tqdm==4.67.1

@@ -28,7 +28,7 @@ def train():
 
     # ]
 
-    max_lines = 10
+    max_lines = 1000
     dataset = load_dataset("tatsu-lab/alpaca")
 
     train_data = dataset["train"]
@@ -67,14 +67,14 @@ def train():
     print("="*60)
     print("Training model.")
     train_time = time.time()
-    trainer.train(epochs=10, batch_size=20)
+    trainer.train(epochs=13, batch_size=50)
     end_train = time.time() - train_time
     print("Finished training model.")
     print("="*60)
 
     print("Saving checkpoints.")
     check_time = time.time()
-    trainer.save_checkpoint("artifacts/training_logs/training_logs_20l_10_11_2025.pkl")
+    trainer.save_checkpoint("artifacts/training_logs/training_logs_1000l_10_11_2025_10:27pm.pkl")
     end_check = time.time() - check_time
     print("Saved checkpoints.")
     print("="*60)
@@ -106,20 +106,20 @@ def main():
     dummy_input = ["dummy"]
     trainer = Trainer(tokenizer, dummy_input)
 
-    trainer.load_checkpoint("artifacts/training_logs/training_logs_20l_10_11_2025.pkl")
+    trainer.load_checkpoint("artifacts/training_logs/training_logs_1000l_10_11_2025_10:27pm.pkl")
 
-    prompt = "Once upon a time "
-    generated_text = trainer.generate(prompt, max_length = 50)
-    print("Generated: \n", generated_text)
+    prompt = "Describe some of the benefits of a vegetarian diet."
+    generated_text = trainer.generate(prompt, max_length=10, temperature=0.7, top_k=40, repetition_penalty= 5)
+    print("Length generated: \n", generated_text)
 
 if __name__ == "__main__":
     start = time.time()
-    train()
+    # train()
     end = time.time()
     print("="*60)
     print(f"Execution time: {end-start:.4f} s")
 
-    # main()
+    main()
 
 
 
