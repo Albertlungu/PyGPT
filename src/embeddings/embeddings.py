@@ -1,10 +1,13 @@
 import numpy as np
+import jax
+import jax.numpy as jnp
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
 from src.embeddings.positional_encoding import PositionalEncoding
+from src.training.loss_function import CrossEntropyLoss
 import re
 from tqdm import tqdm
 import pickle
@@ -21,6 +24,7 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 class EmbeddingLayer:
 
     default_embedding_dim = 256
+    key = jax.random.PRNGKey(0)
     
     def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 512, n = 10000):
         """
@@ -36,91 +40,59 @@ class EmbeddingLayer:
         self.max_seq_length = max_seq_length
         self.n = n
 
-        self.embeddings = np.random.randn(self.vocab_size, self.embedding_dim) * np.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
+        self.embeddings = jax.random.normal(self.key, (self.vocab_size, self.embedding_dim)) * jnp.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
         self.positional_encoding_class = PositionalEncoding(self.embedding_dim, self.max_seq_length)
-
         self.positional_encodings = self.positional_encoding_class._create_positional_encoding(n) # using the function that will be declared later to get the positional encoding of a certain word
 
-        self.last_input_ids = None # for future backpropagation, storing the last input ID
+    @staticmethod
+    def pad_token_ids(max_len, token_ids, pad_token_id=0):
+        batch_size = len(token_ids)
+        padded = jnp.full((batch_size, max_len), pad_token_id, dtype=jnp.float32)
+        lengths = jnp.array([min(len(seq), max_len) for seq in token_ids])
 
-        self.encoding_gradient = np.zeros_like(self.embeddings) # for future backpropagation, storing the gradient of the encoding
+        def scatter_seq(i,seq):
+            l = lengths[i]
+            return padded.at[i, :l].set(jnp.array(seq[:1]))
 
-    def fwd(self, token_ids):
-        """
-        Forward pass to convert input_ids to embeddings
-
-        Args:
-            token_ids (list or array): list or array of sequences of token IDs (can be 1D or 2D with variable lengths)
+        padded = jax.lax.fori_loop(0, batch_size, scatter_seq, padded)
+        return padded
         
-        Return:
-            output (array): embeddings that have positional encoding information inside of them (gradient)
-        """
-        # Ensure token_ids is a list of sequences
-        if isinstance(token_ids, np.ndarray) and token_ids.ndim == 2:
-            sequences = [list(seq) for seq in token_ids]
-        elif isinstance(token_ids, (list, tuple)):
-            # Check if it's a list of ints or list of lists
-            if len(token_ids) == 0:
-                sequences = []
-            elif isinstance(token_ids[0], (list, tuple, np.ndarray)):
-                sequences = [list(seq) for seq in token_ids]
-            else:
-                sequences = [list(token_ids)]
-        else:
-            sequences = [list(token_ids)]
 
-        self.batch_size = len(sequences)
-        self.max_len = max(len(seq) for seq in sequences) if sequences else 0
-        self.max_len = min(self.max_len, self.max_seq_length)  # limit to max_seq_length
+    @staticmethod
+    @jax.jit
+    def embedding_fwd(params, padded_token_ids, pad_token_id=0):
+        embeddings, positional_encodings = params # params[0] = embeddings; params[1] = positional_encodings, is a tuple of the two.
 
-        # Initialize padded array with zeros (assumed padding token id = 0)
-        padded_token_ids = np.zeros((self.batch_size, self.max_len), dtype=int)
+        mask = padded_token_ids != pad_token_id
+        token_embeddings = embeddings[padded_token_ids]
+        token_embeddings = token_embeddings * jnp.sqrt(embeddings.shape[1])
 
-        for i, seq in enumerate(sequences):
-            length = min(len(seq), self.max_len)
-            padded_token_ids[i, :length] = seq[:length]
-
-        self.last_input_ids = padded_token_ids
-
-        token_embeddings = self.embeddings[padded_token_ids]  # shape (batch_size, max_len, embedding_dim)
-        token_embeddings = token_embeddings * np.sqrt(self.embedding_dim)  # scale embeddings
-
-        pos_enc = self.positional_encodings[:self.max_len, :]  # shape (max_len, embedding_dim)
-
-        # Add positional encoding to each sequence
-        output = token_embeddings + pos_enc[np.newaxis, :, :]
-
-        return output  # shape (batch_size, max_len, embedding_dim)
-
-    def backward(self, gradient):
-        """
-        The backward pass to convert embeddings back to ids
-
-        Args:
-            gradient (array): the embeddings with positional encodings to convert
-        """
-        if gradient.ndim == 2:
-            gradient = gradient[np.newaxis, :]
-
-        gradient = gradient * np.sqrt(self.embedding_dim) # scaling it down in backward pass because we did this in forward pass
-        batch_size, seq_len, _ = gradient.shape
-
-        flat_ids = self.last_input_ids.flatten()
-        flat_grads = gradient.reshape(-1, gradient.shape[-1])
-        np.add.at(self.encoding_gradient, flat_ids, flat_grads)
-
-        return self.encoding_gradient
+        pos_enc = positional_encodings[:padded_token_ids.shape[1], :]
+        output = token_embeddings + pos_enc[None, :, :]
+        return output, mask
     
-    def update(self, learning_rate):
+    def loss_fn(self, token_ids, targets, ignore_index=0):
+        params = (self.embeddings, self.positional_encodings)
+
+        loss_fn = jax.jit(lambda params, token_ids, targets: CrossEntropyLoss.fwd(
+            EmbeddingLayer.embedding_fwd(params, token_ids)[0], targets
+        ))
+
+        loss, grads = jax.value_and_grad(loss_fn)(params, token_ids, targets)
+        return loss, grads
+
+    
+    def update(self, grads, learning_rate):
         """
         Updates embedding weights using gradients (added up from all ids)
 
         Args:
             learning_rate (float): rate at which the machine moves forward
         """
-        self.embeddings -= learning_rate*self.encoding_gradient
-        self.encoding_gradient.fill(0)
+        embedding_grads, pos_enc_grads = grads
+        self.embeddings -= learning_rate * embedding_grads
+        self.positional_encodings -= learning_rate * pos_enc_grads
     
     def save(self, filepath):
         """
@@ -143,10 +115,10 @@ class EmbeddingLayer:
             self.vocab_size = data['vocab_size']
             self.embedding_dim = data['embedding_dim']
             self.max_seq_length = data['max_seq_length']
-            self.positional_encodings = self._create_positional_encoding()
+            self.positional_encodings = self.positional_encoding_class._create_positional_encoding()
 
     def get_params_and_grads(self):
-        return [{'value': self.embeddings, 'grad': self.encoding_gradient}]
+        return (self.embeddings, self.positional_encodings)
 
 
 def main():
@@ -161,29 +133,6 @@ def main():
     print("="*60)
     print("Main ran with no errors")
     print("="*60)
-    
-    # n = 10000
-    # embedding_dim = 256
-    # embedding_layer = EmbeddingLayer(vocab_size=tokenizer.vocab_size, embedding_dim=embedding_dim, n=n)
-    
-    # # filepath = "artifacts/embeddings.pkl"
-    # # embedding_layer.save(filepath)
-    # # print("saved encoding model to path: ", filepath)
-
-
-    # sample_text = "Hello world"
-    # for i in tokenizer.encode(sample_text):
-    #     print(tokenizer.decode([i]))
-    
-    # embeddings = embedding_layer.embeddings[:2, :10]
-    # print("What the embeddings look like (definition and meaning of word as a vector): ", embeddings)
-    # pos_enc = embedding_layer.positional_encodings[:2, :10]
-    # print("What positional encodings look like (vector describing position of word in sentence): ", pos_enc)
-    # fwd = embedding_layer.forward(tokenizer.encode(sample_text))
-    # print("What the forward function returns - a numpy array of embeddings/definitions of words: ", fwd[:2, :10])
-    
-    # print("What the backward function of a forward pass looks like: ", embedding_layer.backward(fwd)[:2])
-
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,6 @@
 import numpy as np
+import jax
+import jax.numpy as jnp
 
 class PositionalEncoding:
     def __init__(self, embedding_dim, max_seq_length = 512):
@@ -27,10 +29,10 @@ class PositionalEncoding:
         # return P
         
         L, d = self.max_seq_length, self.embedding_dim
-        pos = np.arange(L)[:, np.newaxis]
-        i = np.arange(d)[np.newaxis, :]
-        angle_rates = 1 / np.power(n, (2 * (i//2)) / d)
+        pos = jnp.arange(L)[:, None]
+        i = jnp.arange(d)[None, :]
+        angle_rates = 1 / jnp.power(n, (2 * (i//2)) / d)
         P = pos * angle_rates
-        P[:, 0::2] = np.sin(P[:, 0::2])
-        P[:, 1::2] = np.cos(P[:, 1::2])
+        P = P.at[:, 0::2].set(jnp.sin(P[:, 0::2]))
+        P = P.at[:, 1::2].set(jnp.cos(P[:, 1::2]))
         return P
