@@ -64,68 +64,96 @@ class Trainer:
         for param in self.params:
             param['value'] -= self.lr * param['grad']
 
-    def train(self, epochs = 10, batch_size = 20):  # Reduced from 100 to 20
+    def train(self, epochs = 10, batch_size = 20, checkpoint_path = "artifacts/training_logs/training_logs.pkl", save_every = 10):  # Reduced from 100 to 20
+        """
+        Train the model with automatic checkpoint saving.
 
+        Args:
+            epochs (int): Number of training epochs
+            batch_size (int): Size of each training batch
+            checkpoint_path (str): Path to save checkpoints
+            save_every (int): Save checkpoint every N epochs (default: 10)
+        """
         batches = self.create_batches(batch_size)
 
         # Disable automatic garbage collection during training
         # GC pauses cause significant delays between batches
         gc.disable()
 
-        for epoch in range(epochs):
-            total_loss = 0
-            for batch in tqdm(batches, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
-                start_time = t.time()
-                self.zero_grad()
-                time_zero_grad = t.time()-start_time
+        try:
+            for epoch in range(epochs):
+                total_loss = 0
+                for batch in tqdm(batches, desc = f"Epoch {epoch+1}/{epochs}", leave = False):
+                    start_time = t.time()
+                    self.zero_grad()
+                    time_zero_grad = t.time()-start_time
 
 
-                start_fwd = t.time()
-                # Get the actual sequence length from transformer output (may be truncated to max_seq_length)
-                _, initial_seq_len, _ = self.embedding_layer.fwd(batch[:1]).shape  # Check what seq len we'll get
+                    start_fwd = t.time()
+                    # Get the actual sequence length from transformer output (may be truncated to max_seq_length)
+                    _, initial_seq_len, _ = self.embedding_layer.fwd(batch[:1]).shape  # Check what seq len we'll get
 
-                # Truncate batch to match what embeddings will produce, then shift for targets
-                truncated_batch = batch[:, :initial_seq_len]  # Shape: (batch_size, seq_len)
-                targets = truncated_batch[:, 1:]  # Shape: (batch_size, seq_len-1)
+                    # Truncate batch to match what embeddings will produce, then shift for targets
+                    truncated_batch = batch[:, :initial_seq_len]  # Shape: (batch_size, seq_len)
+                    targets = truncated_batch[:, 1:]  # Shape: (batch_size, seq_len-1)
 
-                # Only pass the input portion (not the targets) to the model
-                input_batch = truncated_batch[:, :-1]  # Shape: (batch_size, seq_len-1)
+                    # Only pass the input portion (not the targets) to the model
+                    input_batch = truncated_batch[:, :-1]  # Shape: (batch_size, seq_len-1)
 
-                transformer_out, logits = self.fwd(input_batch)
-                time_fwd = t.time() - start_fwd
-
-
-                start_loss = t.time()
-                loss = self.compute_loss(logits, targets)
-                time_loss = t.time() - start_loss
+                    transformer_out, logits = self.fwd(input_batch)
+                    time_fwd = t.time() - start_fwd
 
 
-                start_bwd = t.time()
-                # Use the outputs directly since they already match target shapes
-                self.backward(logits, targets, transformer_out)
-                time_bwd = t.time() - start_bwd
-
-                start_step = t.time()
-                self.clip_gradients()
-                self.step()
-                time_step = t.time() - start_step
+                    start_loss = t.time()
+                    loss = self.compute_loss(logits, targets)
+                    time_loss = t.time() - start_loss
 
 
-                total_time = t.time() - start_time
-                total_loss += loss
+                    start_bwd = t.time()
+                    # Use the outputs directly since they already match target shapes
+                    self.backward(logits, targets, transformer_out)
+                    time_bwd = t.time() - start_bwd
 
-            print(f"ZeroGrad: {time_zero_grad:.4f}s, Fwd: {time_fwd:.4f}s, "
-                f"Loss: {time_loss:.4f}s, Bwd: {time_bwd:.4f}s, Step: {time_step:.4f}s, "
-                f"Total: {total_time:.4f}s")
+                    start_step = t.time()
+                    self.clip_gradients()
+                    self.step()
+                    time_step = t.time() - start_step
 
-            avg_loss = total_loss / len(batches)
-            print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss: .4f}")
 
-            # Manually trigger garbage collection between epochs
-            gc.collect()
+                    total_time = t.time() - start_time
+                    total_loss += loss
+
+                print(f"ZeroGrad: {time_zero_grad:.4f}s, Fwd: {time_fwd:.4f}s, "
+                    f"Loss: {time_loss:.4f}s, Bwd: {time_bwd:.4f}s, Step: {time_step:.4f}s, "
+                    f"Total: {total_time:.4f}s")
+
+                avg_loss = total_loss / len(batches)
+                print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss: .4f}")
+
+                # Save checkpoint periodically
+                if (epoch + 1) % save_every == 0:
+                    print(f"Saving checkpoint at epoch {epoch+1}...")
+                    self.save_checkpoint(checkpoint_path)
+
+                # Manually trigger garbage collection between epochs
+                gc.collect()
+
+        except KeyboardInterrupt:
+            print("\n\nTraining interrupted by user!")
+            print("Saving checkpoint before exit...")
+            self.save_checkpoint(checkpoint_path)
+            print(f"Checkpoint saved to {checkpoint_path}")
+            print(f"Training stopped at epoch {epoch+1}/{epochs}")
+            # Re-enable automatic garbage collection
+            gc.enable()
+            raise  # Re-raise to allow proper cleanup
 
         # Re-enable automatic garbage collection after training
         gc.enable()
+
+        # Save final checkpoint
+        print("Training complete! Saving final checkpoint...")
+        self.save_checkpoint(checkpoint_path)
 
     def collect_params(self):
         params = []
@@ -231,7 +259,7 @@ class Trainer:
         for p, saved in zip(self.collect_params(), saved_params):
             p['value'][:] = saved['value']
 
-    def generate(self, prompt, max_length = 50, temperature=1.0, top_k = None):
+    def generate(self, prompt, max_length = 50, temperature=1.0, top_k = None, repetition_penalty=1.2):
         token_ids = self.tokenizer.encode(prompt)
 
         # Clip token IDs to valid vocabulary range
@@ -244,6 +272,16 @@ class Trainer:
 
             # Get logits for last token in the sequence: shape (vocab_size,)
             next_logits = logits[0, -1] / temperature
+
+            # Use repetition penalty
+            if repetition_penalty != 1.0:
+                for token_id in set(token_ids):
+                    if token_id < len(next_logits):
+                        if next_logits[token_id] >0:
+                            next_logits[token_id] /= repetition_penalty
+                        else:
+                            next_logits[token_id] *= repetition_penalty
+            
 
             if top_k is not None:
                 top_k_indices = np.argsort(next_logits)[-top_k:]
