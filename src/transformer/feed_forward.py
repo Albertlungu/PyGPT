@@ -2,10 +2,13 @@ import numpy as np
 import pickle
 import sys
 import os
+import jax
+import jax.numpy as jnp
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.embeddings.embeddings import EmbeddingLayer
 from src.tokenizer.tokenizer_class import BPETokenizer 
+from src.training.loss_function import CrossEntropyLoss
 
 class FeedForward():
     """
@@ -20,8 +23,9 @@ class FeedForward():
     - GELU activation function.
     - Forward and backward passes for training with gradient descent.
     """
+    key = jax.random.PRNGKey(0)
 
-    def __init__(self, token_ids, embeddings: EmbeddingLayer):
+    def __init__(self, embeddings: EmbeddingLayer, ff_dim = 0):
         """
         Initializes the FeedForward network.
 
@@ -32,39 +36,29 @@ class FeedForward():
         Attributes:
             embedding_dim (int): Dimensionality of the embeddings.
             ff_dim (int): Dimensionality of the feed-forward hidden layer (4 times embedding_dim).
-            W1 (np.ndarray): Weight matrix for the first linear layer of shape (embedding_dim, ff_dim).
-            B1 (np.ndarray): Bias vector for the first linear layer of shape (ff_dim,).
-            W2 (np.ndarray): Weight matrix for the second linear layer of shape (ff_dim, embedding_dim).
-            B2 (np.ndarray): Bias vector for the second linear layer of shape (embedding_dim,).
-            ff_input (np.ndarray): Input embeddings to the feed-forward network.
-            hidden_layer (np.ndarray): Output of the first linear layer before activation.
-            activated_layer (np.ndarray): Output after applying the GELU activation.
-            output (np.ndarray): Final output of the feed-forward network.
+            W1 (jnp.ndarray): Weight matrix for the first linear layer of shape (embedding_dim, ff_dim).
+            B1 (jnp.ndarray): Bias vector for the first linear layer of shape (ff_dim,).
+            W2 (jnp.ndarray): Weight matrix for the second linear layer of shape (ff_dim, embedding_dim).
+            B2 (jnp.ndarray): Bias vector for the second linear layer of shape (embedding_dim,).
+            ff_input (jnp.ndarray): Input embeddings to the feed-forward network.
         """
         self.embedding_dim = EmbeddingLayer.default_embedding_dim
-        self.ff_dim = self.embedding_dim * 4 # Feed Forward dimension
+        self.ff_dim = ff_dim or self.embedding_dim * 4 # Feed Forward dimension
+
+        k1, k2 = jax.random.split(self.key)
+
+        self.cross_entropy = CrossEntropyLoss()
+        self.loss_fn = self.cross_entropy.fwd
 
         # Layers 
-        self.W1 = np.random.randn(self.embedding_dim, self.ff_dim) * (1/np.sqrt(self.embedding_dim)) # Weight first layer of shape (embedding_dim, ff_dim)
-        self.B1 = np.zeros(self.ff_dim)# Bias first layer
-        self.W2 = np.random.randn(self.ff_dim, self.embedding_dim) * (1/np.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
-        self.B2 = np.zeros(self.embedding_dim) # Bias second layer
-
-        self.dW1 = np.zeros_like(self.W1)
-        self.dB1 = np.zeros_like(self.B1)
-        self.dW2 = np.zeros_like(self.W2)
-        self.dB2 = np.zeros_like(self.B2)
-
-        self.ff_input = embeddings.fwd(token_ids)
-        self.hidden_layer = self.ff_input @ self.W1 + self.B1
-        
-        self.activated_layer = self.GELU(self.hidden_layer)
-
-        self.output = self.activated_layer @ self.W2 + self.B2
-
-
-
-    def GELU(self, x):
+        self.W1 = jnp.random.normal(k1, (self.embedding_dim, self.ff_dim)) * (1 / jnp.sqrt(self.embedding_dim)) # Weight first layer of shape (embedding_dim, ff_dim)
+        self.B1 = jnp.zeros(self.ff_dim)# Bias first layer
+        self.W2 = jnp.random.normal(k2, (self.ff_dim, self.embedding_dim)) * (1 / jnp.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
+        self.B2 = jnp.zeros(self.embedding_dim) # Bias second layer
+            
+    @staticmethod
+    @jax.jit
+    def GELU(x):
         """
         GELU activation function
 
@@ -74,9 +68,11 @@ class FeedForward():
         Returns:
             array: activated layer from hidden layer
         """
-        return 0.5 * x *(1+np.tanh(np.sqrt(2/np.pi) * (x + 0.044715 * x**3)))
+        return 0.5 * x * (1+jnp.tanh(jnp.sqrt(2/jnp.pi) * (x + 0.044715 * x**3)))
     
-    def ReLU(self, x):
+    @staticmethod
+    @jax.jit
+    def ReLU(x):
         """Basically GELU but simpler
 
         Args:
@@ -85,84 +81,60 @@ class FeedForward():
         Returns:
             array: activated layer from hidden layer
         """
-        return np.maximum(0, x)
+        return jnp.maximum(0, x)
     
+    @jax.jit
     def fwd(self, x):
         """
         Performs the forward pass of the feed-forward network.
 
         Args:
-            x (np.ndarray): Input array of shape (batch_size, embedding_dim).
+            x (jnp.ndarray): Input array of shape (batch_size, embedding_dim).
 
         Returns:
-            np.ndarray: Output array of shape (batch_size, embedding_dim).
+            jnp.ndarray: Output array of shape (batch_size, embedding_dim).
         """
-        self.ff_input = x
-        self.hidden_layer = self.ff_input @ self.W1 + self.B1
-        self.activated_layer = self.GELU(self.hidden_layer)
-        self.output = self.activated_layer @ self.W2 + self.B2
-        return self.output, self.hidden_layer, self.activated_layer
-
-    def backward(self, dout, input_to_ffn, activated_layer, hidden_layer):
+        hidden = x @ self.W1 + self.B1
+        activated = self.GELU(hidden)
+        output = activated @ self.W2 + self.B2
+        return output
+    
+    def compute_grads(self, x, target_ids):
         """
-        Performs the backward pass and calculates gradients.
+        Computes gradients of the mean squared error loss w.r.t. the weights and biases.
 
         Args:
-            dout (np.ndarray): Gradient of loss with respect to output, shape (batch_size, seq_len, embedding_dim).
-            input_to_ffn (np.ndarray): Input to the forward pass of the feed-forward network,
-                                       shape (batch_size, seq_len, embedding_dim).
-            activated_layer (np.ndarray): Output of the first linear layer after activation,
-                                          shape (batch_size, seq_len, ff_dim).
-            hidden_layer (np.ndarray): Output of the first linear layer before activation,
-                                       shape (batch_size, seq_len, ff_dim).
+            x (jnp.ndarray): Input embeddings (batch_size, embedding_dim)
+            target (jnp.ndarray): Target embeddings of same shape
 
         Returns:
-            np.ndarray: Gradient of loss with respect to input x, shape (batch_size, seq_len, embedding_dim).
+            dict: Gradients for W1, B1, W2, B2
         """
-        # Gradient of output layer
-        self.dW2 = np.einsum('bsf, bse -> fe', activated_layer, dout) # f: ff_dim, e: embedding_dim
-        self.dB2 = np.sum(dout, axis=(0, 1))
+        def loss_fn(W1, B1, W2, B2):
+            hidden = x @ W1 + B1
+            activated = self.GELU(hidden)
+            logits = activated @ W2 + B2
+            return self.loss_fn(logits, target_ids)
+        
+        grads = jax.grad(loss_fn, argnums=(0,1,2,3))(self.W1, self.B1, self.W2, self.B2)
 
-        # Gradient through activation
-        dactivated = dout @ self.W2.T
-        dgelu = dactivated * (0.5 * (1 + np.tanh(np.sqrt(2/np.pi)*(hidden_layer + 0.044715 * hidden_layer**3))) + 
-                             0.5 * hidden_layer * (1 - np.tanh(np.sqrt(2/np.pi)*(hidden_layer + 0.044715 * hidden_layer**3))**2) * 
-                             np.sqrt(2/np.pi) * (1 + 3 * 0.044715 * hidden_layer**2))
-
-        self.dW1 = np.einsum('bse, bsf -> ef', input_to_ffn, dgelu) # e: embedding_dim, f: ff_dim
-        self.dB1 = np.sum(dgelu, axis=(0, 1))
-
-        # Gradient with respect to input
-        dx = dgelu @ self.W1.T
-
-        return dx
+        return{
+            'dW1': grads[0],
+            'dB1': grads[1],
+            'dW2': grads[2],
+            'dB2': grads[3]
+        }
     
-    def get_params_and_grads(self):
+    def get_params_and_grads(self, grads):
         return [
-            {'value': self.W1, 'grad': self.dW1},
-            {'value': self.B1, 'grad': self.dB1},
-            {'value': self.W2, 'grad': self.dW2},
-            {'value': self.B2, 'grad': self.dB2},
+            {'value': self.W1, 'grad': grads['dW1']},
+            {'value': self.B1, 'grad': grads['dB1']},
+            {'value': self.W2, 'grad': grads['dW2']},
+            {'value': self.B2, 'grad': grads['dB2']},
         ]
 
 def main():
-
-    with open('artifacts/tokenizer.pkl', 'rb') as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
-
-    embedding_layer = EmbeddingLayer(vocab_size=tokenizer.vocab_size)
-
-    sample_texts = [
-    "Hello World. My name is Albert Lungu",
-    "What is your name?",
-    "I like transformers",
-]
-    token_ids = [tokenizer.encode(text) for text in sample_texts]
-
-    ff_class = FeedForward(token_ids, embedding_layer)
-    # print(ff_class.hidden_layer)
-#     print("Output shape: ", np.shape(ff_class.forward(ff_class.ff_input)))
+    pass
 
 
 if __name__ == "__main__":
