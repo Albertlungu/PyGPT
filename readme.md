@@ -130,15 +130,15 @@ flowchart TD
 - [x] Embedding Layer + Positional Encodings
 - [x] Feed Forward Layer
 - [x] Attention module (single head)
-- [ ] Multi-head attention (optional)
 - [x] Transformer Block
 - [x] Output Layer
 - [x] Loss Function
-- [ ] Optimization (optional)
 - [x] Training
-- [ ] Use JAX to use GPU for faster processing times
-- [ ] Change from a predictive text model to an instructional style chatbot (SFT).
-  - [ ] Change dataset type. Reference [this](https://huggingface.co/datasets/tatsu-lab/alpaca)
+- [ ] Use JAX to use GPU for faster processing times - create different branch in git
+- [ ] Multi-head attention
+- [ ] Stack transformer blocks
+- [ ] **MAYBE**: Change tokenizer from BPE to WordPiece or SentencePiece
+- [ ] Optimization (optional)
 - [ ] Add readme files for each part of the model for understanding
 - [ ] React + Next.js + Tailwind CSS Frontend
 
