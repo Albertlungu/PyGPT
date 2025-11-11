@@ -14,6 +14,7 @@ This is used as more of a learning experience for myself to understand the conce
 
 ## Libraries used
 - numpy
+- JAX-metal (made to run on mac)
 - pickle
 - sys
 - os

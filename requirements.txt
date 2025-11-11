@@ -2,3 +2,6 @@ datasets==4.4.1
 matplotlib==3.10.7
 numpy==2.3.4
 tqdm==4.67.1
+jax-metal==0.1.1
+jax==0.8.0
+jaxlib==0.8.0
