@@ -1,5 +1,7 @@
 import numpy as np
 import sys, os
+import jax
+import jax.numpy as jnp
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.transformer.output_layer import OutputLayer
 from src.embeddings.embeddings import EmbeddingLayer
@@ -21,61 +23,50 @@ class CrossEntropyLoss:
         self.ignore_index = ignore_index 
         self.reduction = reduction
 
-    def fwd(self, logits, targets):
+    @staticmethod
+    @jax.jit
+    def fwd(logits, targets, reduction = 'mean', ignore_index = None):
         """
         Forward pass for the cross entropy loss function. Calculates the actual loss for each token.
 
         Args:
-            logits (np.ndarray): Output of the OutputLayer class.
-            targets (np.ndarray): The true "next-token" index that the model is supposed to predict. Shape: (batch, seq_len)
+            logits (jnp.ndarray): Output of the OutputLayer class.
+            targets (jnp.ndarray): The true "next-token" index that the model is supposed to predict. Shape: (batch, seq_len)
 
         Returns:
-            np.float64: Loss of my model I guess
+            jnp.float64: Loss of my model I guess
 
         Raises:
             TypeError
         """
-        targets = np.array(targets, dtype = np.int32)
+        targets = jnp.array(targets, dtype = jnp.int32)
 
-        self.batch_size, self.seq_len, self.vocab_size = logits.shape
+        batch_size, seq_len, vocab_size = logits.shape
 
-        logits = logits.reshape(-1, self.vocab_size)
+        logits = logits.reshape(-1, vocab_size)
         targets = targets.reshape(-1)
 
-        if self.ignore_index is not None:
-            mask = targets != self.ignore_index
+        if ignore_index is not None:
+            mask = targets != ignore_index
             logits = logits[mask]
             targets = targets[mask]
 
         # Using the cross-entropy mathematical definition to find the loss
-        max_logits = np.max(logits, axis = -1, keepdims= True)
-        shifted_logits = logits - max_logits
-
-        exp_logits = np.exp(shifted_logits)
-        sum_exp = np.sum(exp_logits, axis = -1, keepdims=True)
-        log_sum_exp = np.log(sum_exp)
-
-        log_probs = shifted_logits - log_sum_exp
+        log_probs = jax.nn.log_softmax(logits, axis=-1)
 
         # Clip targets to valid vocabulary range
-        targets = np.clip(targets, 0, self.vocab_size - 1)
-
-        selected_log_probs = log_probs[np.arange(len(targets)), targets]
-
+        targets = jnp.clip(targets, 0, vocab_size - 1)
+        selected_log_probs = log_probs[jnp.arange(len(targets)), targets]
         neg_log_prob = -selected_log_probs
-        
 
-        valid_mask = (targets != self.ignore_index)
+        valid_mask = (targets != ignore_index)
         masked_loss = neg_log_prob * valid_mask
-        num_valid = np.sum(valid_mask)
+        num_valid = jnp.sum(valid_mask)
 
-        if self.reduction == 'mean':
-            if num_valid == 0:
-                loss = 0.0
-            else:
-                loss = np.sum(masked_loss)/num_valid
-        elif self.reduction == 'sum':
-            loss = np.sum(masked_loss)
+        if reduction == 'mean':
+            loss = jnp.mean(neg_log_prob)
+        elif reduction == 'sum':
+            loss = jnp.sum(neg_log_prob)
         else: 
             raise TypeError("Please enter either 'mean' or 'sum' as a reduction")
         
