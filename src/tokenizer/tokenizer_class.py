@@ -171,21 +171,50 @@ class BPETokenizer:
             tokens = self.merge(tokens, pair, idx)
         return tokens
 
+def clean_alpaca_text(file_path):
+    """
+    Read Alpaca dataset and strip out 'Instruction:', 'Input:', and 'Output:' labels.
+    Returns clean text with only the actual content.
+    """
+    clean_text = []
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            # Remove the labels
+            if line.startswith("Instruction:"):
+                line = line.replace("Instruction:", "").strip()
+            elif line.startswith("Input:"):
+                line = line.replace("Input:", "").strip()
+            elif line.startswith("Output:"):
+                line = line.replace("Output:", "").strip()
+
+            # Keep the line if it has content
+            if line:
+                clean_text.append(line)
+
+    return " ".join(clean_text)
+
 def main():
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
-    training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read() # reading training data from wiki file
-    print("Read training data")
+    # Choose your training data source:
+    # Option 1: Wikipedia data
+    # training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read()
+
+    # Option 2: Alpaca data (cleaned)
+    training_data = clean_alpaca_text("tokenizer_training_data/alpaca_sample_utf8.txt")
+    print("Read and cleaned training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
     print("Encoded training data")
     # print(list(tokens)[:100])
 
     # Variable declaration (params for tokenizer class)
-    dataset_length = len(tokens)//1000 # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
+    dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 5000
+    vocab_size = 1000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
@@ -223,5 +252,5 @@ def test_tokenizer(path):
     print(ids)
 
 if __name__ == "__main__":
-    # main()
-    test_tokenizer("tokenizer_training_data/alpaca_sample_utf8.txt")
+    main()
+    # test_tokenizer("tokenizer_training_data/alpaca_sample_utf8.txt")
