@@ -109,7 +109,7 @@ def main():
     trainer.load_checkpoint("artifacts/training_logs/training_logs_1000l_10_11_2025_10:27pm.pkl")
 
     prompt = "Describe some of the benefits of a vegetarian diet."
-    generated_text = trainer.generate(prompt, max_length=10, temperature=0.7, top_k=40, repetition_penalty= 5)
+    generated_text = trainer.generate(prompt, max_length=10, temperature=0.7, top_k=40, repetition_penalty= 1.3)
     print("Length generated: \n", generated_text)
 
 if __name__ == "__main__":
