@@ -22,6 +22,7 @@ class CrossEntropyLoss:
         """
         self.ignore_index = ignore_index 
         self.reduction = reduction
+        self.grad_fn = jax.grad(self.fwd)
 
     @staticmethod
     @jax.jit
@@ -39,68 +40,28 @@ class CrossEntropyLoss:
         Raises:
             TypeError
         """
-        targets = jnp.array(targets, dtype = jnp.int32)
-
         batch_size, seq_len, vocab_size = logits.shape
+        
+        log_probs = jax.nn.log_softmax(logits, axis=-1)
+        targets = jnp.clip(targets, 0, vocab_size - 1)
 
-        logits = logits.reshape(-1, vocab_size)
-        targets = targets.reshape(-1)
+        selected_log_probs = jnp.take_along_axis(
+            log_probs, targets[..., None], axis=-1
+        )[...,0]
+
 
         if ignore_index is not None:
-            mask = targets != ignore_index
-            logits = logits[mask]
-            targets = targets[mask]
+            mask = (targets != ignore_index).astype(jnp.float32)
+        else:
+            mask = jnp.ones_like(targets, dtype=jnp.float32)
 
-        # Using the cross-entropy mathematical definition to find the loss
-        log_probs = jax.nn.log_softmax(logits, axis=-1)
-
-        # Clip targets to valid vocabulary range
-        targets = jnp.clip(targets, 0, vocab_size - 1)
-        selected_log_probs = log_probs[jnp.arange(len(targets)), targets]
-        neg_log_prob = -selected_log_probs
-
-        valid_mask = (targets != ignore_index)
-        masked_loss = neg_log_prob * valid_mask
-        num_valid = jnp.sum(valid_mask)
+        neg_log_prob = -selected_log_probs * mask
 
         if reduction == 'mean':
-            loss = jnp.mean(neg_log_prob)
+            loss = neg_log_prob.sum()/mask.sum()
         elif reduction == 'sum':
-            loss = jnp.sum(neg_log_prob)
+            loss = neg_log_prob.sum()
         else: 
             raise TypeError("Please enter either 'mean' or 'sum' as a reduction")
         
         return loss
-
-    def backward(self, logits, targets, probs):
-        """
-        The backward pass for cross-entropy loss function. Returns how much the loss would change if you changed the raw output scores (logits) of the model, for each token and each possible vocab item.
-
-        Args:
-            logits (np.ndarray): Logits from the OutputLayer class
-            targets (np.ndarray): The true "next-token" index that the model is supposed to predict. Shape: (batch, seq_len)
-            probs (np.ndarray): The probabilities calculated from the softmax of the logits from the OutputLayer class
-
-        Returns:
-            np.ndarray of shape (batch_size, seq_len, vocab_size), dtype np.float64: 
-                The gradient of the cross-entropy loss with respect to the logits. Each element represents how much the loss would increase or decrease if the corresponding logit were increased by a small amount. This gradient is used to propagate errors backward through the network during training.
-        """
-        targets = np.array(targets, dtype=np.int32)
-
-        batch_size, seq_len, vocab_size = logits.shape
-
-        one_hot_targets = np.zeros_like(logits)
-        one_hot_flat = one_hot_targets.reshape(-1, vocab_size)
-        targets = targets.reshape(-1)
-        one_hot_flat[np.arange(len(targets)), targets] = 1
-        one_hot_targets = one_hot_flat.reshape(batch_size, seq_len, vocab_size)
-
-        d_logits = probs - one_hot_targets
-
-        d_logits = d_logits / (batch_size * seq_len)
-
-        if self.ignore_index is not None:
-            mask = (targets != self.ignore_index).reshape(batch_size, seq_len, 1)
-            d_logits = d_logits * mask  # broadcast mask over vocab dimension
-
-        return d_logits
