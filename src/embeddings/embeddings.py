@@ -53,7 +53,7 @@ class EmbeddingLayer:
 
         def scatter_seq(i,seq):
             l = lengths[i]
-            return padded.at[i, :l].set(jnp.array(seq[:1]))
+            return padded.at[i, :l].set(jnp.array(seq[:l]))
 
         padded = jax.lax.fori_loop(0, batch_size, scatter_seq, padded)
         return padded

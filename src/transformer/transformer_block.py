@@ -1,10 +1,11 @@
-import numpy as np
+import jax
+import jax.numpy as jnp
 import pickle
 import sys, os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer
-from src.transformer.single_head_attention import Attention
+from src.transformer.multi_head_attention import MultiHeadAttention
 from src.transformer.feed_forward import FeedForward
 from src.tokenizer.tokenizer_class import BPETokenizer
 
@@ -24,7 +25,7 @@ class TransformerBlock:
         attention_output: Output from the attention layer.
     """
     
-    def __init__(self, token_ids, embedding_layer: EmbeddingLayer):
+    def __init__(self, embedding_layer: EmbeddingLayer, num_heads = 8):
         """
         Initializing instance variables for the TransformerBlock class
 
@@ -35,28 +36,35 @@ class TransformerBlock:
         Returns:
             _type_: _description_
         """
-        self.embedding_layer = embedding_layer
-        self.token_ids = token_ids
-        
-        self.attention_layer = Attention(token_ids, embedding_layer)
-        self.ffn = FeedForward(token_ids, embedding_layer)
 
         self.embedding_dim = embedding_layer.embedding_dim
-        self.input_embeddings = self.embedding_layer.fwd(self.token_ids)
+        self.num_heads = num_heads
 
-        # First normalization: layer normalization 1 scale. Makes learnable scaling after normalization
-        self.gamma_1 = np.ones(self.embedding_dim)
-        # First normalization: layer norm shift param. Makes learnable offset after normalization
-        self.beta_1 = np.zeros(self.embedding_dim)
+        self.attention_layer = MultiHeadAttention(embedding_layer, num_heads)
+        self.ffn = FeedForward(embedding_layer)
 
-        self.gamma_2 = np.ones(self.embedding_dim)
-        self.beta_2 = np.zeros(self.embedding_dim)
+        # self.embedding_layer = embedding_layer
+        # self.token_ids = token_ids
+        
+        # self.attention_layer = Attention(token_ids, embedding_layer)
+        # self.ffn = FeedForward(token_ids, embedding_layer)
+
+        # self.embedding_dim = embedding_layer.embedding_dim
+        # self.input_embeddings = self.embedding_layer.fwd(self.token_ids)
+
+        # # First normalization: layer normalization 1 scale. Makes learnable scaling after normalization
+        # self.gamma_1 = jnp.ones(self.embedding_dim)
+        # # First normalization: layer norm shift param. Makes learnable offset after normalization
+        # self.beta_1 = np.zeros(self.embedding_dim)
+
+        # self.gamma_2 = np.ones(self.embedding_dim)
+        # self.beta_2 = np.zeros(self.embedding_dim)
 
 
-        self.d_gamma_1 = np.zeros_like(self.gamma_1)
-        self.d_beta_1  = np.zeros_like(self.beta_1)
-        self.d_gamma_2 = np.zeros_like(self.gamma_2)
-        self.d_beta_2  = np.zeros_like(self.beta_2)
+        # self.d_gamma_1 = np.zeros_like(self.gamma_1)
+        # self.d_beta_1  = np.zeros_like(self.beta_1)
+        # self.d_gamma_2 = np.zeros_like(self.gamma_2)
+        # self.d_beta_2  = np.zeros_like(self.beta_2)
 
     @staticmethod
     def layer_norm(x, gamma, beta, epsilon = 1e-5):
