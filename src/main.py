@@ -2,6 +2,9 @@ import os
 # CRITICAL: Set this BEFORE importing JAX anywhere!
 # Force JAX to use CPU (Apple Metal GPU support is buggy and not production-ready)
 os.environ['JAX_PLATFORMS'] = 'cpu'
+# Configure number of CPU threads (adjust based on your CPU)
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'  # Simulates 8 devices
+# os.environ['OMP_NUM_THREADS'] = '8'  # OpenMP threads for parallel operationsis
 
 import numpy as np
 import sys
@@ -26,11 +29,16 @@ def train():
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    max_lines = 1000
+    max_lines = 3200
     dataset = load_dataset("tatsu-lab/alpaca")
 
     train_data = dataset["train"]
     train_data = train_data.select(range(max_lines))
+    
+    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
+    #     for ex in train_data:
+    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+    #         f.write(text + "\n")
 
     training_texts = []
     with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
@@ -41,13 +49,12 @@ def train():
     print("Appended training texts to list")
     print("="*60)
 
-    # NEW: Include num_blocks and num_heads
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
         lr=1e-4,
-        num_blocks=4,  # Stack 4 transformer blocks
-        num_heads=8    # 8 attention heads per block
+        num_blocks=4,  # Reduced from 4 to 2 blocks
+        num_heads=4  # Changed from 6 to 4 (256 / 4 = 64, which divides evenly)
     )
 
     # Print model architecture summary
@@ -60,11 +67,12 @@ def train():
     train_time = time.time()
 
     # Train with automatic checkpointing
+    # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=10,
-        batch_size=50,
+        epochs=10,       # Reduced from 10 to 2 epochs
+        batch_size=64,  # Reduced from 50 to 32
         checkpoint_path="artifacts/training_logs/jax_training_latest.pkl",
-        save_every=10
+        save_every=2    # Save every 2 epochs
     )
 
     end_train = time.time() - train_time
@@ -98,7 +106,7 @@ def main():
     )
 
     # Load the JAX checkpoint (NOT the old NumPy one!)
-    checkpoint_path = "artifacts/training_logs/jax_training_latest.pkl"
+    checkpoint_path = "artifacts/training_logs/jax_training_latest_2025-11-11_23-00-03.pkl"
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -109,7 +117,7 @@ def main():
         return
 
     # Generate text
-    prompt = "Describe some of the benefits of a vegetarian diet."
+    prompt = "What is your name?"
     print("="*60)
     print(f"Prompt: {prompt}")
     print("="*60)
@@ -131,10 +139,10 @@ if __name__ == "__main__":
 
     # Choose what to run:
     # Option 1: Train a new model (creates JAX checkpoint)
-    train()
+    # train()
 
     # Option 2: Load existing model and generate
-    # main()
+    main()
 
     end = time.time()
     print("="*60)
