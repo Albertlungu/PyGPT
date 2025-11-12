@@ -22,16 +22,16 @@ def train():
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    max_lines = 3200
+    max_lines = 10000
     dataset = load_dataset("tatsu-lab/alpaca")
 
     train_data = dataset["train"]
     train_data = train_data.select(range(max_lines))
     
-    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
-    #     for ex in train_data:
-    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
-    #         f.write(text + "\n")
+    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
+        for ex in train_data:
+            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+            f.write(text + "\n")
 
     training_texts = []
     with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
@@ -45,8 +45,8 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
-        lr=1e-4,
-        num_blocks=4,
+        lr=1e-5,
+        num_blocks=8,
         num_heads=4
     )
 
@@ -63,7 +63,7 @@ def train():
     # FAST TEST CONFIGURATION
     trainer.train(
         epochs=10,       # Reduced from 10 to 2 epochs
-        batch_size=64,  # Reduced from 50 to 32
+        batch_size=16,  
         checkpoint_path="artifacts/training_logs/jax_training_latest.pkl",
         save_every=2    # Save every 2 epochs
     )
@@ -93,13 +93,12 @@ def main():
     trainer = Trainer(
         tokenizer,
         dummy_input,
-        lr=1e-4,
-        num_blocks=4,  # Must match checkpoint!
-        num_heads=8    # Must match checkpoint!
+        lr=1e-5,
+        num_blocks=8,  # Must match checkpoint!
+        num_heads=4    # Must match checkpoint!
     )
 
-    # Load the JAX checkpoint (NOT the old NumPy one!)
-    checkpoint_path = "artifacts/training_logs/jax_training_latest_2025-11-11_23-00-03.pkl"
+    checkpoint_path = "artifacts/training_logs/jax_training_latest_2025-11-12_16-38-27.pkl"
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -109,23 +108,29 @@ def main():
         print("Run: train() function to create a new JAX checkpoint")
         return
 
-    # Generate text
-    prompt = "What is your name?"
-    print("="*60)
-    print(f"Prompt: {prompt}")
-    print("="*60)
+    # Test multiple prompts
+    prompts = [
+        "What is your name?",
+        "Hello world",
+        "The capital of France is",
+        "Once upon a time"
+    ]
 
-    generated_text = trainer.generate(
-        prompt,
-        max_length=50,
-        temperature=0.7,
-        top_k=40,
-        repetition_penalty=1.5
-    )
+    for prompt in prompts:
+        print("="*60)
+        print(f"Prompt: {prompt}")
+        print("="*60)
 
-    print("Generated:")
-    print(generated_text)
-    print("="*60)
+        generated_text = trainer.generate(
+            prompt,
+            max_length=50,
+            temperature=0.7,
+            top_k=40,
+            repetition_penalty=1.5
+        )
+
+        print(f"Generated: '{generated_text}'")
+        print()
 
 if __name__ == "__main__":
     start = time.time()

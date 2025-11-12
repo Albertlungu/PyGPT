@@ -488,10 +488,11 @@ class Trainer:
             if next_token >= vocab_size:
                 next_token = vocab_size - 1
 
-            token_ids.append(next_token)
-
+            # Check for EOS BEFORE appending to avoid including it in output
             if next_token == self.tokenizer.eos_token_id:
                 break
+
+            token_ids.append(next_token)
 
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
