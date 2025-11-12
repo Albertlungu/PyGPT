@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 
 class PositionalEncoding:
-    def __init__(self, embedding_dim, max_seq_length = 512):
+    def __init__(self, embedding_dim, max_seq_length = 256):
         self.max_seq_length = max_seq_length
         self.embedding_dim = embedding_dim
           

@@ -24,9 +24,9 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 
 class EmbeddingLayer:
 
-    default_embedding_dim = 512
+    default_embedding_dim = 256
 
-    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 512, n = 10000):
+    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 256, n = 10000):
         """
         Initializes an EmbeddingLayer object.
 
@@ -41,10 +41,6 @@ class EmbeddingLayer:
         self.n = n
 
         # Create key inside __init__, not at class level
-        print("vocab_size:", self.vocab_size, type(self.vocab_size))
-        print("embedding_dim:", self.embedding_dim, type(self.embedding_dim))
-        print("max_seq_length:", self.max_seq_length, type(self.max_seq_length))
-        print("n:", self.n, type(self.n))
         self.key = jax.random.PRNGKey(0)
         self.embeddings = jax.random.normal(self.key, (self.vocab_size, self.embedding_dim)) * jnp.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
@@ -74,8 +70,14 @@ class EmbeddingLayer:
         token_embeddings = token_embeddings * jnp.sqrt(embeddings.shape[1])
 
         seq_len = padded_token_ids.shape[1]
-        pos_enc = positional_encodings[:seq_len, :]
-        output = token_embeddings + pos_enc[None, :seq_len, :]
+
+        # Use positional encodings up to seq_len
+        # If seq_len > available encodings, we use modulo to wrap around
+        # This is JIT-compatible since we avoid dynamic padding
+        pos_indices = jnp.arange(seq_len) % positional_encodings.shape[0]
+        pos_enc = positional_encodings[pos_indices, :]
+
+        output = token_embeddings + pos_enc[None, :, :]
         return output, mask
     
     # Removed loss_fn method - loss computation is now handled in Trainer
