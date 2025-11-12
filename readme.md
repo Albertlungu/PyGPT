@@ -20,11 +20,69 @@ This is used as more of a learning experience for myself to understand the conce
 - os
 - matplotlib
 
-## Install Dependencies
+## Installation and Setup (MacOS)
+This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below.
 
+**Install pyenv on your computer and verify installation**
+```bash
+curl https://pyenv.run | bash
+pyenv --version
+```
+**Install python 3.10**
+```bash
+pyenv install 3.10 # This will install python 3.10.19 by default
+pyenv local 3.10
+```
+
+### Setup pyenv shell
+```bash
+pyenv init # This shows an overview of how to setup shell, but will be covered in this readme
+```
+Run this to add the setup code to both `~/.zshrc` and `~/.zprofile`
+```bash
+cat << 'EOF' >> ~/.zshrc
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
+EOF
+
+cat << 'EOF' >> ~/.zprofile
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - zsh)"
+EOF
+```
+
+Use shell and verify python version
+```bash
+pyenv shell 3.10
+python --version # This should return "Python 3.10.19"
+```
+
+Once you have verified the use of Python 3.10, you can install the requirements and dependencies in a virtual environment.
+```bash
+python -m venv venv # Creates a virtual environment named 'venv'
+source venv/bin/activate
+which python # Should return "/Users/[your_user]/[something]/PyGPT/venv/bin/python.
+```
+
+*If `which python` does not return your venv path, make sure to manually change the path to your python interpreter in your IDE*
+
+**Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
+
+## Why run this on Python 3.10?
+This is because jax-metal runs most reliably on the following versions, allowing the program to take full advantage of the Apple M-series METAl-based GPUs:
+```python
+jax-metal==0.1.1
+jax==0.5.0 
+jaxlib==0.5.0
+```
+
+Without GPU usage, JAX would be forced to run on CPU, which, although fast, is greatly overshadowed by a GPU's ability to compute mathematical relationships in parallel.
+
 
 ## Tokenization process
 
