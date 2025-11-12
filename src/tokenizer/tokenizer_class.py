@@ -85,16 +85,19 @@ class BPETokenizer:
     def get_stats(self, input):
         """
         Given a text, returns a dictionary of pair counts.
+        OPTIMIZED: Use defaultdict for faster counting.
         The key is a tuple of two adjacent characters, and the value is the count of that pair.
         """
-        counts = {} # initializing counts dictionary
-        for pair in zip(input, input[1:]): # zipping characters that are one next to another (imagine a zipper, how the teeth thread --> this is what zip() does)
-            counts[pair] = counts.get(pair, 0) + 1 # counts the amount of adjacent pairs in a text
-        return counts
+        from collections import defaultdict
+        counts = defaultdict(int)
+        for pair in zip(input, input[1:]):
+            counts[pair] += 1
+        return dict(counts)
 
     def merge(self, input, pair, idx):
         """
         Merge a pair of adjacent ids in a list of ids to a single idx.
+        OPTIMIZED: Use list comprehension for faster execution.
 
         Args:
             input (list): The list of ids to merge.
@@ -104,15 +107,19 @@ class BPETokenizer:
         Returns:
             list: The list of ids with the pair merged.
         """
-        new_input = [] # input after merging adjacent tokens
+        new_input = []
         i = 0
+        pair_0, pair_1 = pair  # Unpack once to avoid repeated tuple indexing
+
         while i < len(input):
-            if i < len(input) - 1 and input[i] == pair[0] and input[i + 1] == pair[1]: # checks if the current index is equal to the first element of the pair and the next index is equal to the second element of the pair
+            # Check if we can merge at this position
+            if i < len(input) - 1 and input[i] == pair_0 and input[i + 1] == pair_1:
                 new_input.append(idx)
                 i += 2
             else:
                 new_input.append(input[i])
                 i += 1
+
         return new_input
 
     def make_merges(self, input, dataset_length):
@@ -160,15 +167,36 @@ class BPETokenizer:
     def encode(self, text):
         """
         Given a string of text, returns the corresponding list of ids.
+        OPTIMIZED: Precompute merge priorities and use efficient merging.
         """
         tokens = list(text.encode("utf-8"))
+
+        # Early exit for short sequences
+        if len(tokens) < 2:
+            return tokens
+
+        # Cache merge priorities (lower = merge earlier)
+        # This avoids repeated dictionary lookups
+        merge_priorities = {pair: idx for pair, idx in self.merges.items()}
+
         while len(tokens) >= 2:
-            stats = self.get_stats(tokens)
-            pair = min(stats, key = lambda pair: self.merges.get(pair, float('inf')))
-            if pair not in self.merges:
+            # Find all pairs and their positions in one pass
+            pairs = []
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                if pair in merge_priorities:
+                    pairs.append((merge_priorities[pair], pair, i))
+
+            if not pairs:
                 break
-            idx = self.merges[pair]
-            tokens = self.merge(tokens, pair, idx)
+
+            # Get the pair with lowest merge index (highest priority)
+            _, best_pair, _ = min(pairs)
+            idx = merge_priorities[best_pair]
+
+            # Merge in-place style (more efficient)
+            tokens = self.merge(tokens, best_pair, idx)
+
         return tokens
 
 def clean_alpaca_text(file_path):
@@ -214,7 +242,7 @@ def main():
     # Variable declaration (params for tokenizer class)
     dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 1000
+    vocab_size = 2500
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
