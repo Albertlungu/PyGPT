@@ -361,8 +361,8 @@ class Trainer:
         print("="*60)
 
         # Calculate model size in MB (assuming float32)
-        size_mb = (counts['total'] * 4) / (1024 * 1024)
-        print(f"Model Size (float32): ~{size_mb:.2f} MB")
+        size_mb = (counts['total'] * 2) / (1024 * 1024)
+        print(f"Model Size (float16): ~{size_mb:.2f} MB")
         print("="*60)
 
     def save_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
