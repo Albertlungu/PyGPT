@@ -1,5 +1,10 @@
+import os
+# CRITICAL: Set this BEFORE importing JAX anywhere!
+# Force JAX to use CPU (Apple Metal GPU support is buggy and not production-ready)
+os.environ['JAX_PLATFORMS'] = 'cpu'
+
 import numpy as np
-import sys, os
+import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import time
 import pickle
@@ -13,6 +18,7 @@ from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
 def train():
+    """Train a new model from scratch with JAX architecture."""
 
     print("This code is running.")
     # Load tokenizer
@@ -20,169 +26,117 @@ def train():
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    # Example texts
-    # training_texts = [
-    #     "What is your name?",
-    #     "Hello, how are you?",
-    #     "This is a simple example text."
-
-    # ]
-
     max_lines = 1000
     dataset = load_dataset("tatsu-lab/alpaca")
 
     train_data = dataset["train"]
     train_data = train_data.select(range(max_lines))
 
-    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
-    #     for ex in train_data:
-    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
-    #         f.write(text + "\n")
-
-
     training_texts = []
     with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             training_texts.append(line.strip())
 
-    training_data = train_data.select(range(max_lines))
-
-    # with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
-    #     for i, line in enumerate(tqdm(f, total=max_lines, desc = "Loading texts...")):
-    #         if i >= max_lines:
-    #             break
-    #         training_texts.append(line.strip())
-
-    print("="*60) 
+    print("="*60)
     print("Appended training texts to list")
-    
     print("="*60)
 
+    # NEW: Include num_blocks and num_heads
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
-        lr = 1e-4
+        lr=1e-4,
+        num_blocks=4,  # Stack 4 transformer blocks
+        num_heads=8    # 8 attention heads per block
     )
 
+    # Print model architecture summary
     print("="*60)
+    print("MODEL SUMMARY")
+    trainer.print_model_summary()
+    print("="*60)
+
     print("Training model.")
     train_time = time.time()
-    trainer.train(epochs=13, batch_size=50)
+
+    # Train with automatic checkpointing
+    trainer.train(
+        epochs=10,
+        batch_size=50,
+        checkpoint_path="artifacts/training_logs/jax_training_latest.pkl",
+        save_every=10
+    )
+
     end_train = time.time() - train_time
     print("Finished training model.")
     print("="*60)
+    print(f"Train time: {end_train:.4f}s")
 
-    print("Saving checkpoints.")
-    check_time = time.time()
-    trainer.save_checkpoint("artifacts/training_logs/training_logs_1000l_10_11_2025_10:27pm.pkl")
-    end_check = time.time() - check_time
-    print("Saved checkpoints.")
+    # Test generation
+    prompt = "What is 5+5?"
+    generated_text = trainer.generate(prompt, max_length=50)
+    print("="*60)
+    print("Generated text:")
+    print(generated_text)
     print("="*60)
 
-
-    print(f"Train time: {end_train:.4f}\nCheckpoint time: {end_check:.4f}")
-
-    # Convert texts to token ids
-    token_ids = [tokenizer.encode(text) for text in training_texts]
-
-    batch_size = len(training_texts)
-
-    # Create embedding layer
-    embedding_layer = EmbeddingLayer(
-        vocab_size=tokenizer.vocab_size, 
-        embedding_dim=256
-    )
-    embeddings = embedding_layer.fwd(token_ids)
-
-    prompt = "What is 5+5?"
-    generated_text = trainer.generate(prompt, max_length = 50)
-    print("Generated: \n", generated_text)
-
 def main():
+    """Load a trained model and generate text."""
+
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
-    
+
+    # Create trainer with same architecture as checkpoint
     dummy_input = ["dummy"]
-    trainer = Trainer(tokenizer, dummy_input)
+    trainer = Trainer(
+        tokenizer,
+        dummy_input,
+        lr=1e-4,
+        num_blocks=4,  # Must match checkpoint!
+        num_heads=8    # Must match checkpoint!
+    )
 
-    trainer.load_checkpoint("artifacts/training_logs/training_logs_1000l_10_11_2025_10:27pm.pkl")
+    # Load the JAX checkpoint (NOT the old NumPy one!)
+    checkpoint_path = "artifacts/training_logs/jax_training_latest.pkl"
 
+    try:
+        trainer.load_checkpoint(checkpoint_path)
+    except FileNotFoundError:
+        print(f"ERROR: Checkpoint not found at {checkpoint_path}")
+        print("You need to train a new model first!")
+        print("Run: train() function to create a new JAX checkpoint")
+        return
+
+    # Generate text
     prompt = "Describe some of the benefits of a vegetarian diet."
-    generated_text = trainer.generate(prompt, max_length=10, temperature=0.7, top_k=40, repetition_penalty= 5)
-    print("Length generated: \n", generated_text)
+    print("="*60)
+    print(f"Prompt: {prompt}")
+    print("="*60)
+
+    generated_text = trainer.generate(
+        prompt,
+        max_length=50,
+        temperature=0.7,
+        top_k=40,
+        repetition_penalty=1.5
+    )
+
+    print("Generated:")
+    print(generated_text)
+    print("="*60)
 
 if __name__ == "__main__":
     start = time.time()
-    # train()
+
+    # Choose what to run:
+    # Option 1: Train a new model (creates JAX checkpoint)
+    train()
+
+    # Option 2: Load existing model and generate
+    # main()
+
     end = time.time()
     print("="*60)
-    print(f"Execution time: {end-start:.4f} s")
-
-    main()
-
-
-
-
-
-
-
-
-# # Wrap your main logic in a function with max_lines parameter
-# def run_training(max_lines):
-#     # Load tokenizer
-
-#     with open("artifacts/tokenizer.pkl", "rb") as f:
-#         tokenizer = pickle.load(f)
-#         tokenizer._ensure_vocab()
-
-#     training_texts = []
-#     with open("tokenizer_training_data/all_wiki_text.txt", "r", encoding="utf-8") as f:
-#         for i, line in enumerate(tqdm(f, total=max_lines, desc=f"Loading {max_lines} lines...")):
-#             if i >= max_lines:
-#                 break
-#             training_texts.append(line.strip())
-
-#     trainer = Trainer(
-#         tokenizer=tokenizer,
-#         user_input=training_texts,
-#         lr=1e-4
-#     )
-
-#     start_time = time.time()
-#     trainer.train(epochs=1)
-#     end_time = time.time()
-
-#     return end_time - start_time
-
-
-# # Run loop for 10 increments, starting with max_lines = 2
-# results = []
-
-# for i in range(30):
-#     max_lines = 2 + i * 2
-#     print("="*60)
-#     print(f"Running training with max_lines = {max_lines}")
-#     exec_time = run_training(max_lines)
-#     results.append((max_lines, exec_time))
-#     print(f"Execution time: {exec_time:.4f} s")
-#     print("="*60)
-
-# # Print results in a table
-# print("\nSummary of execution times:")
-# print(f"{'Max Lines':>10} | {'Time (s)':>10}")
-# print("-"*25)
-# for max_lines, t in results:
-#     print(f"{max_lines:>10} | {t:>10.4f}")
-
-# max_lines_list, times_list = zip(*results)  # unzip into two lists
-
-# plt.figure(figsize=(8, 5))
-# plt.plot(max_lines_list, times_list, marker='o', linestyle='-', color='blue')
-# plt.title("Execution Time vs Max Lines")
-# plt.xlabel("Max Lines")
-# plt.ylabel("Time (seconds)")
-# plt.grid(True)
-# plt.xticks(max_lines_list)
-# plt.tight_layout()
-# plt.show()
+    print(f"Total execution time: {end-start:.4f} s")
+    print("="*60)

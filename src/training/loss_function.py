@@ -3,9 +3,6 @@ import sys, os
 import jax
 import jax.numpy as jnp
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-from src.transformer.output_layer import OutputLayer
-from src.embeddings.embeddings import EmbeddingLayer
-from src.transformer.transformer_block import TransformerBlock
 
 class CrossEntropyLoss:
     """

@@ -23,7 +23,7 @@ class FeedForward():
     - GELU activation function.
     - Forward and backward passes for training with gradient descent.
     """
-    key = jax.random.PRNGKey(0)
+    
 
     def __init__(self, embeddings: EmbeddingLayer, ff_dim = 0):
         """
@@ -45,15 +45,17 @@ class FeedForward():
         self.embedding_dim = EmbeddingLayer.default_embedding_dim
         self.ff_dim = ff_dim or self.embedding_dim * 4 # Feed Forward dimension
 
+        self.key = jax.random.PRNGKey(0)
+
         k1, k2 = jax.random.split(self.key)
 
         self.cross_entropy = CrossEntropyLoss()
         self.loss_fn = self.cross_entropy.fwd
 
         # Layers 
-        self.W1 = jnp.random.normal(k1, (self.embedding_dim, self.ff_dim)) * (1 / jnp.sqrt(self.embedding_dim)) # Weight first layer of shape (embedding_dim, ff_dim)
+        self.W1 = jax.random.normal(k1, (self.embedding_dim, self.ff_dim)) * (1 / jnp.sqrt(self.embedding_dim)) # Weight first layer of shape (embedding_dim, ff_dim)
         self.B1 = jnp.zeros(self.ff_dim)# Bias first layer
-        self.W2 = jnp.random.normal(k2, (self.ff_dim, self.embedding_dim)) * (1 / jnp.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
+        self.W2 = jax.random.normal(k2, (self.ff_dim, self.embedding_dim)) * (1 / jnp.sqrt(self.ff_dim)) # Weight second layer of shape (ff_dim, embedding_dim)
         self.B2 = jnp.zeros(self.embedding_dim) # Bias second layer
             
     @staticmethod

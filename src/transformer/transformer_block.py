@@ -43,10 +43,10 @@ class TransformerBlock:
         self.attention_layer = MultiHeadAttention(embedding_layer, num_heads)
         self.ffn = FeedForward(embedding_layer)
 
-        self.gamma_1 = jnp.ones(self.gamma_1)
-        self.beta_1 = jnp.zeros(self.beta_1)
-        self.gamma_2 = jnp.ones(self.gamma_2)
-        self.beta_2 = jnp.zeros(self.beta_2)
+        self.gamma_1 = jnp.ones((self.embedding_dim,))
+        self.beta_1 = jnp.zeros((self.embedding_dim,))
+        self.gamma_2 = jnp.ones((self.embedding_dim,))
+        self.beta_2 = jnp.zeros((self.embedding_dim,))
 
     @staticmethod
     @jax.jit

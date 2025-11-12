@@ -1,13 +1,13 @@
+import os
 import numpy as np
 import jax
 import jax.numpy as jnp
+
 import sys
-import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
 from src.embeddings.positional_encoding import PositionalEncoding
-from src.training.loss_function import CrossEntropyLoss
 import re
 from tqdm import tqdm
 import pickle
@@ -23,9 +23,8 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 
 class EmbeddingLayer:
 
-    default_embedding_dim = 256
-    key = jax.random.PRNGKey(0)
-    
+    default_embedding_dim = 512
+
     def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 512, n = 10000):
         """
         Initializes an EmbeddingLayer object.
@@ -40,6 +39,8 @@ class EmbeddingLayer:
         self.max_seq_length = max_seq_length
         self.n = n
 
+        # Create key inside __init__, not at class level
+        self.key = jax.random.PRNGKey(0)
         self.embeddings = jax.random.normal(self.key, (self.vocab_size, self.embedding_dim)) * jnp.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
         self.positional_encoding_class = PositionalEncoding(self.embedding_dim, self.max_seq_length)
@@ -72,15 +73,7 @@ class EmbeddingLayer:
         output = token_embeddings + pos_enc[None, :, :]
         return output, mask
     
-    def loss_fn(self, token_ids, targets, ignore_index=0):
-        params = (self.embeddings, self.positional_encodings)
-
-        loss_fn = jax.jit(lambda params, token_ids, targets: CrossEntropyLoss.fwd(
-            EmbeddingLayer.embedding_fwd(params, token_ids)[0], targets
-        ))
-
-        loss, grads = jax.value_and_grad(loss_fn)(params, token_ids, targets)
-        return loss, grads
+    # Removed loss_fn method - loss computation is now handled in Trainer
 
     
     def update(self, grads, learning_rate):
