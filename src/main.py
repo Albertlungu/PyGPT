@@ -1,10 +1,10 @@
 import os
 # CRITICAL: Set this BEFORE importing JAX anywhere!
 # Force JAX to use CPU (Apple Metal GPU support is buggy and not production-ready)
-os.environ['JAX_PLATFORMS'] = 'cpu'
+os.environ['JAX_PLATFORMS'] = 'tpu'
 # Configure number of CPU threads (adjust based on your CPU)
 # os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=8'  # Simulates 8 devices
-# os.environ['OMP_NUM_THREADS'] = '8'  # OpenMP threads for parallel operationsis
+# os.environ['OMP_NUM_THREADS'] = '10'  # OpenMP threads for parallel operationsis
 
 import numpy as np
 import sys
@@ -53,8 +53,8 @@ def train():
         tokenizer=tokenizer,
         user_input=training_texts,
         lr=1e-4,
-        num_blocks=4,  # Reduced from 4 to 2 blocks
-        num_heads=4  # Changed from 6 to 4 (256 / 4 = 64, which divides evenly)
+        num_blocks=4,
+        num_heads=4  
     )
 
     # Print model architecture summary
@@ -139,10 +139,10 @@ if __name__ == "__main__":
 
     # Choose what to run:
     # Option 1: Train a new model (creates JAX checkpoint)
-    # train()
+    train()
 
     # Option 2: Load existing model and generate
-    main()
+    # main()
 
     end = time.time()
     print("="*60)
