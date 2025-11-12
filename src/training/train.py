@@ -10,6 +10,7 @@ import sys
 from tqdm import tqdm
 import time as t
 import gc
+import functools
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import pickle
 from src.embeddings.embeddings import EmbeddingLayer
@@ -55,8 +56,8 @@ class Trainer:
 
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
-            embedding_dim=256,
-            max_seq_length=128
+            embedding_dim=512,
+            max_seq_length=512  # Increased to handle longer sequences
         )
 
         self.num_blocks = num_blocks
@@ -105,20 +106,24 @@ class Trainer:
             tuple: (loss, all_grads)
         """
 
+        # Compute static architecture values outside the traced function
+        num_heads = self.num_heads
+        head_dim = self.embedding_layer.embedding_dim // self.num_heads
+        embedding_dim = self.embedding_layer.embedding_dim
+
         def full_fwd_and_loss(embed_params, stack_params, output_params):
             embeddings, _ = EmbeddingLayer.embedding_fwd(embed_params, token_ids)
 
             current = embeddings
             for i, block in enumerate(self.transformer_stack.blocks):
                 block_params = stack_params[i]
-                head_dim = self.embedding_layer.embedding_dim // self.num_heads
 
                 current = TransformerBlock.fwd(
                     block_params,
                     current,
-                    self.num_heads,
+                    num_heads,
                     head_dim,
-                    self.embedding_layer.embedding_dim
+                    embedding_dim
                 )
 
             logits = OutputLayer.fwd(output_params, current)

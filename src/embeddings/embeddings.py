@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
 from src.embeddings.positional_encoding import PositionalEncoding
+import src.utils.config
 import re
 from tqdm import tqdm
 import pickle
@@ -40,6 +41,10 @@ class EmbeddingLayer:
         self.n = n
 
         # Create key inside __init__, not at class level
+        print("vocab_size:", self.vocab_size, type(self.vocab_size))
+        print("embedding_dim:", self.embedding_dim, type(self.embedding_dim))
+        print("max_seq_length:", self.max_seq_length, type(self.max_seq_length))
+        print("n:", self.n, type(self.n))
         self.key = jax.random.PRNGKey(0)
         self.embeddings = jax.random.normal(self.key, (self.vocab_size, self.embedding_dim)) * jnp.sqrt(1.0/self.vocab_size) # Basically, random numbers are selected for the vectors right now as placeholder so that the algorithm doesn't see symmetry and simply assign the same vector values to every word upon training
 
@@ -61,16 +66,16 @@ class EmbeddingLayer:
         
 
     @staticmethod
-    @jax.jit
     def embedding_fwd(params, padded_token_ids, pad_token_id=0):
-        embeddings, positional_encodings = params # params[0] = embeddings; params[1] = positional_encodings, is a tuple of the two.
+        embeddings, positional_encodings = params # params[0] =  embeddings; params[1] = positional_encodings, is a tuple of the two.
 
         mask = padded_token_ids != pad_token_id
         token_embeddings = embeddings[padded_token_ids]
         token_embeddings = token_embeddings * jnp.sqrt(embeddings.shape[1])
 
-        pos_enc = positional_encodings[:padded_token_ids.shape[1], :]
-        output = token_embeddings + pos_enc[None, :, :]
+        seq_len = padded_token_ids.shape[1]
+        pos_enc = positional_encodings[:seq_len, :]
+        output = token_embeddings + pos_enc[None, :seq_len, :]
         return output, mask
     
     # Removed loss_fn method - loss computation is now handled in Trainer
@@ -122,6 +127,8 @@ def main():
     with open('artifacts/tokenizer.pkl', 'rb') as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
+
+    embedding_layer = EmbeddingLayer()
     
     print("="*60)
     print("Main ran with no errors")

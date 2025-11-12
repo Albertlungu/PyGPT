@@ -22,7 +22,6 @@ class CrossEntropyLoss:
         self.grad_fn = jax.grad(self.fwd)
 
     @staticmethod
-    @jax.jit
     def fwd(logits, targets, reduction = 'mean', ignore_index = None):
         """
         Forward pass for the cross entropy loss function. Calculates the actual loss for each token.

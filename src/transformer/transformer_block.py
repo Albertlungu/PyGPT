@@ -49,7 +49,6 @@ class TransformerBlock:
         self.beta_2 = jnp.zeros((self.embedding_dim,))
 
     @staticmethod
-    @jax.jit
     def layer_norm(x, gamma, beta, epsilon = 1e-5):
         """
         Layer normalization - normalizes across the feature dimension.
@@ -74,7 +73,6 @@ class TransformerBlock:
         return output
     
     @staticmethod
-    @jax.jit
     def fwd(params, x, num_heads, head_dim, embedding_dim):
         """
         Forward pass through transformer block (pure function for JIT).

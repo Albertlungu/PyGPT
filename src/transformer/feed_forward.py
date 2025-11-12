@@ -59,7 +59,6 @@ class FeedForward():
         self.B2 = jnp.zeros(self.embedding_dim) # Bias second layer
             
     @staticmethod
-    @jax.jit
     def GELU(x):
         """
         GELU activation function
@@ -73,7 +72,6 @@ class FeedForward():
         return 0.5 * x * (1+jnp.tanh(jnp.sqrt(2/jnp.pi) * (x + 0.044715 * x**3)))
     
     @staticmethod
-    @jax.jit
     def ReLU(x):
         """Basically GELU but simpler
 
@@ -84,9 +82,26 @@ class FeedForward():
             array: activated layer from hidden layer
         """
         return jnp.maximum(0, x)
-    
+
+    @staticmethod
+    def fwd(params, x):
+        """
+        Static forward pass for use in JAX autodiff (called from TransformerBlock.fwd).
+
+        Args:
+            params (dict): Dictionary containing 'W1', 'B1', 'W2', 'B2'
+            x (jnp.ndarray): Input array of shape (batch_size, seq_len, embedding_dim)
+
+        Returns:
+            jnp.ndarray: Output array of shape (batch_size, seq_len, embedding_dim)
+        """
+        hidden = x @ params['W1'] + params['B1']
+        activated = FeedForward.GELU(hidden)
+        output = activated @ params['W2'] + params['B2']
+        return output
+
     @jax.jit
-    def fwd(self, x):
+    def fwd_instance(self, x):
         """
         Performs the forward pass of the feed-forward network.
 

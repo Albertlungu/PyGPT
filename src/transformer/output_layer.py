@@ -25,7 +25,6 @@ class OutputLayer:
         # self.W_out = np.random.randn(self.embedding_dim, self.vocab_size) * 0.01
         self.b_out = jnp.zeros(self.vocab_size) # Bias vector
     @staticmethod
-    @jax.jit
     def fwd(params, transformer_output):
         """
 

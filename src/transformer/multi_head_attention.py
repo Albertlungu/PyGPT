@@ -47,7 +47,6 @@ class MultiHeadAttention:
         self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * 0.01
 
     @staticmethod
-    @jax.jit
     def fwd(params, x, num_heads, head_dim, embedding_dim):
         """
         Pure function for jit computation

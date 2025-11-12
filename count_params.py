@@ -29,7 +29,7 @@ def main():
     print("="*60)
 
     vocab_size = tokenizer.vocab_size
-    embed_dim = 256
+    embed_dim = 512
     ff_dim = embed_dim * 4
 
     print(f"\n1. EMBEDDING LAYER:")
