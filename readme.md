@@ -23,6 +23,11 @@ This is used as more of a learning experience for myself to understand the conce
 ## Installation and Setup (MacOS)
 This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below.
 
+
+```bash
+git clone -b JAX-main https://github.com/Albertlungu/PyGPT.git
+```
+
 **Install pyenv on your computer and verify installation**
 ```bash
 curl https://pyenv.run | bash
