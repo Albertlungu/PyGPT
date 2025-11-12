@@ -1,8 +1,4 @@
 import os
-# CRITICAL: Set this BEFORE importing JAX anywhere!
-# Force JAX to use CPU (Apple Metal GPU support is buggy)
-os.environ['JAX_PLATFORMS'] = 'cpu'
-
 import numpy as np
 import jax
 import jax.numpy as jnp
