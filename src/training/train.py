@@ -11,6 +11,7 @@ from tqdm import tqdm
 import time as t
 import gc
 import functools
+from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import pickle
 from src.embeddings.embeddings import EmbeddingLayer
@@ -56,8 +57,8 @@ class Trainer:
 
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
-            embedding_dim=512,
-            max_seq_length=512  # Increased to handle longer sequences
+            embedding_dim=256,
+            max_seq_length=256  # Increased to handle longer sequences
         )
 
         self.num_blocks = num_blocks
@@ -72,6 +73,47 @@ class Trainer:
         self.loss_fn = CrossEntropyLoss()
 
         self.lr = lr
+
+        # Create JIT-compiled loss and gradient function
+        self._compiled_loss_and_grad = self._create_jit_loss_fn()
+
+    def _create_jit_loss_fn(self):
+        """
+        Create a JIT-compiled function for computing loss and gradients.
+        This is created once during initialization for maximum performance.
+        """
+        num_heads = self.num_heads
+        head_dim = self.embedding_layer.embedding_dim // self.num_heads
+        embedding_dim = self.embedding_layer.embedding_dim
+        num_blocks = self.num_blocks
+
+        @jax.jit
+        def loss_and_grad_fn(embed_params, stack_params, output_params, token_ids, targets):
+            """JIT-compiled loss and gradient computation."""
+            def loss_fn(embed_params, stack_params, output_params):
+                embeddings, _ = EmbeddingLayer.embedding_fwd(embed_params, token_ids)
+
+                current = embeddings
+                for i in range(num_blocks):
+                    block_params = stack_params[i]
+                    current = TransformerBlock.fwd(
+                        block_params,
+                        current,
+                        num_heads,
+                        head_dim,
+                        embedding_dim
+                    )
+
+                logits = OutputLayer.fwd(output_params, current)
+                loss = CrossEntropyLoss.fwd(logits, targets)
+                return loss
+
+            loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2))(
+                embed_params, stack_params, output_params
+            )
+            return loss, grads
+
+        return loss_and_grad_fn
 
     def fwd(self, token_ids):
         """
@@ -96,7 +138,7 @@ class Trainer:
 
     def compute_loss_and_grads(self, token_ids, targets):
         """
-        Compute loss and ALL gradients using JAX autodiff.
+        Compute loss and ALL gradients using JIT-compiled JAX autodiff.
 
         Args:
             token_ids (jnp.ndarray): Input token IDs, shape (batch, seq_len)
@@ -105,40 +147,14 @@ class Trainer:
         Returns:
             tuple: (loss, all_grads)
         """
-
-        # Compute static architecture values outside the traced function
-        num_heads = self.num_heads
-        head_dim = self.embedding_layer.embedding_dim // self.num_heads
-        embedding_dim = self.embedding_layer.embedding_dim
-
-        def full_fwd_and_loss(embed_params, stack_params, output_params):
-            embeddings, _ = EmbeddingLayer.embedding_fwd(embed_params, token_ids)
-
-            current = embeddings
-            for i, block in enumerate(self.transformer_stack.blocks):
-                block_params = stack_params[i]
-
-                current = TransformerBlock.fwd(
-                    block_params,
-                    current,
-                    num_heads,
-                    head_dim,
-                    embedding_dim
-                )
-
-            logits = OutputLayer.fwd(output_params, current)
-            loss = CrossEntropyLoss.fwd(logits, targets)
-
-            return loss
-
         embed_params = (self.embedding_layer.embeddings, self.embedding_layer.positional_encodings)
         stack_params = [block.get_params() for block in self.transformer_stack.blocks]
         output_params = self.output_layer.get_params()
 
-        loss, grads = jax.value_and_grad(
-            full_fwd_and_loss,
-            argnums=(0, 1, 2)
-        )(embed_params, stack_params, output_params)
+        # Use the pre-compiled JIT function
+        loss, grads = self._compiled_loss_and_grad(
+            embed_params, stack_params, output_params, token_ids, targets
+        )
 
         embed_grads, stack_grads, output_grads = grads
 
@@ -186,16 +202,45 @@ class Trainer:
         self.output_layer.W_out -= self.lr * grads['output']['W_out']
         self.output_layer.b_out -= self.lr * grads['output']['b_out']
 
+    def _get_timestamped_checkpoint_path(self, base_path):
+        """
+        Generate a timestamped checkpoint path.
+
+        Args:
+            base_path (str): Base checkpoint path (e.g., "artifacts/training_logs/checkpoint.pkl")
+
+        Returns:
+            str: Timestamped path (e.g., "artifacts/training_logs/checkpoint_2025-01-11_14-30-45.pkl")
+        """
+        # Get current timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+        # Split the path into directory, filename, and extension
+        directory = os.path.dirname(base_path)
+        filename = os.path.basename(base_path)
+        name, ext = os.path.splitext(filename)
+
+        # Create timestamped filename
+        timestamped_filename = f"{name}_{timestamp}{ext}"
+        timestamped_path = os.path.join(directory, timestamped_filename)
+
+        return timestamped_path
+
     def train(self, epochs=10, batch_size=20, checkpoint_path="artifacts/training_logs/training_logs.pkl", save_every=10):
         """
         Train the model with JAX autodiff.
+        Automatically saves checkpoints with timestamps.
 
         Args:
             epochs (int): Number of training epochs
             batch_size (int): Batch size
-            checkpoint_path (str): Path to save checkpoints
+            checkpoint_path (str): Base path for checkpoints (timestamp will be added)
             save_every (int): Save checkpoint every N epochs
         """
+        # Generate timestamped checkpoint path at start of training
+        timestamped_checkpoint = self._get_timestamped_checkpoint_path(checkpoint_path)
+        print(f"Checkpoints will be saved to: {timestamped_checkpoint}")
+
         batches = self.create_batches(batch_size)
 
         gc.disable()
@@ -225,25 +270,25 @@ class Trainer:
                 avg_loss = total_loss / len(batches)
                 print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}")
 
-                # Save checkpoint
+                # Save checkpoint with timestamp
                 if (epoch + 1) % save_every == 0:
                     print(f"Saving checkpoint at epoch {epoch+1}...")
-                    self.save_checkpoint(checkpoint_path)
+                    self.save_checkpoint(timestamped_checkpoint)
 
                 gc.collect()
 
         except KeyboardInterrupt:
             print("\n\nTraining interrupted by user!")
             print("Saving checkpoint before exit...")
-            self.save_checkpoint(checkpoint_path)
-            print(f"Checkpoint saved to {checkpoint_path}")
+            self.save_checkpoint(timestamped_checkpoint)
+            print(f"Checkpoint saved to {timestamped_checkpoint}")
             print(f"Training stopped at epoch {epoch+1}/{epochs}")
             gc.enable()
             raise
 
         gc.enable()
         print("Training complete! Saving final checkpoint...")
-        self.save_checkpoint(checkpoint_path)
+        self.save_checkpoint(timestamped_checkpoint)
 
     def count_parameters(self):
         """
@@ -387,10 +432,11 @@ class Trainer:
             repetition_penalty (float): Penalty for repeating tokens
 
         Returns:
-            str: Generated text
+            str: Generated text (excluding the prompt)
         """
         token_ids = self.tokenizer.encode(prompt)
         token_ids = [min(tid, self.tokenizer.vocab_size - 1) for tid in token_ids]
+        prompt_length = len(token_ids)  # Track original prompt length
 
         for _ in range(max_length):
             # Convert to JAX array
@@ -402,10 +448,17 @@ class Trainer:
             # Get logits for last token
             next_logits = jnp.array(logits[0, -1]) / temperature
 
+            # CRITICAL: Mask out invalid tokens (beyond vocab_size)
+            # This ensures we NEVER sample invalid token IDs
+            vocab_size = self.tokenizer.vocab_size
+            if len(next_logits) > vocab_size:
+                # Set logits for invalid tokens to -inf (probability = 0)
+                next_logits = next_logits.at[vocab_size:].set(-jnp.inf)
+
             # Repetition penalty
             if repetition_penalty != 1.0:
                 for token_id in set(token_ids):
-                    if token_id < len(next_logits):
+                    if token_id < vocab_size:
                         if next_logits[token_id] > 0:
                             next_logits = next_logits.at[token_id].set(
                                 next_logits[token_id] / repetition_penalty
@@ -428,20 +481,29 @@ class Trainer:
 
             # Convert to numpy for random choice (JAX doesn't have this)
             probs_np = np.array(probs)
-            next_token = np.random.choice(len(probs_np), p=probs_np)
 
-            next_token = min(int(next_token), self.tokenizer.vocab_size - 1)
+            # Normalize to ensure valid probability distribution
+            probs_np = probs_np / probs_np.sum()
+
+            next_token = np.random.choice(len(probs_np), p=probs_np)
+            next_token = int(next_token)
+
+            # This should never trigger now, but keep as final safety
+            if next_token >= vocab_size:
+                next_token = vocab_size - 1
+
             token_ids.append(next_token)
 
             if next_token == self.tokenizer.eos_token_id:
                 break
 
-        # Decode
+        # Decode only the generated tokens (excluding the prompt)
+        generated_token_ids = token_ids[prompt_length:]
         try:
-            return self.tokenizer.decode(token_ids)
+            return self.tokenizer.decode(generated_token_ids)
         except (UnicodeDecodeError, Exception) as e:
             print(f"Warning: Decoding error: {e}")
-            print(f"Generated token IDs: {token_ids[:20]}...")
+            print(f"Generated token IDs: {generated_token_ids[:20]}...")
             return "[Generation failed - invalid tokens produced]"
 
     def create_batches(self, batch_size=100):
