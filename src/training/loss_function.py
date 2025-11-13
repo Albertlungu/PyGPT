@@ -47,9 +47,9 @@ class CrossEntropyLoss:
 
 
         if ignore_index is not None:
-            mask = (targets != ignore_index).astype(jnp.float32)
+            mask = (targets != ignore_index).astype(jnp.float16)
         else:
-            mask = jnp.ones_like(targets, dtype=jnp.float32)
+            mask = jnp.ones_like(targets, dtype=jnp.float16)
 
         neg_log_prob = -selected_log_probs * mask
 

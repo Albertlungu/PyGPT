@@ -16,6 +16,7 @@ from src.transformer.transformer_block import TransformerBlock
 from src.transformer.output_layer import OutputLayer
 from src.training.loss_function import CrossEntropyLoss
 from src.tokenizer.tokenizer_class import BPETokenizer
+from src.optimizers.adam import AdamNested
 
 
 class Trainer:
@@ -70,6 +71,9 @@ class Trainer:
 
         self.lr = lr
 
+        # Initialize Adam optimizer
+        self.optimizer = AdamNested(lr=lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
+
         # Create JIT-compiled loss and gradient function
         self._compiled_loss_and_grad = self._create_jit_loss_fn()
 
@@ -101,7 +105,7 @@ class Trainer:
                     )
 
                 logits = OutputLayer.fwd(output_params, current)
-                loss = CrossEntropyLoss.fwd(logits, targets)
+                loss = CrossEntropyLoss.fwd(logits, targets, ignore_index=self.tokenizer.eos_token_id)
                 return loss
 
             loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2))(
@@ -162,41 +166,106 @@ class Trainer:
 
     def update_params(self, grads):
         """
-        Update all parameters using computed gradients.
+        Update all parameters using Adam optimizer.
 
         Args:
             grads (dict): Gradients from compute_loss_and_grads()
         """
         # Update embedding layer
         embed_grads, pos_grads = grads['embeddings']
-        self.embedding_layer.embeddings -= self.lr * embed_grads
-        self.embedding_layer.positional_encodings -= self.lr * pos_grads
+        self.embedding_layer.embeddings = self.optimizer.step(
+            self.embedding_layer.embeddings,
+            embed_grads,
+            path=('embeddings',)
+        )
+        self.embedding_layer.positional_encodings = self.optimizer.step(
+            self.embedding_layer.positional_encodings,
+            pos_grads,
+            path=('positional',)
+        )
 
         # Update transformer stack (all blocks)
         for i, block in enumerate(self.transformer_stack.blocks):
             block_grads = grads['stack'][i]
 
             # Update attention params
-            block.attention_layer.W_Q -= self.lr * block_grads['attn']['W_Q']
-            block.attention_layer.W_K -= self.lr * block_grads['attn']['W_K']
-            block.attention_layer.W_V -= self.lr * block_grads['attn']['W_V']
-            block.attention_layer.W_O -= self.lr * block_grads['attn']['W_O']
+            block.attention_layer.W_Q = self.optimizer.step(
+                block.attention_layer.W_Q,
+                block_grads['attn']['W_Q'],
+                path=('stack', i, 'attn', 'W_Q')
+            )
+            block.attention_layer.W_K = self.optimizer.step(
+                block.attention_layer.W_K,
+                block_grads['attn']['W_K'],
+                path=('stack', i, 'attn', 'W_K')
+            )
+            block.attention_layer.W_V = self.optimizer.step(
+                block.attention_layer.W_V,
+                block_grads['attn']['W_V'],
+                path=('stack', i, 'attn', 'W_V')
+            )
+            block.attention_layer.W_O = self.optimizer.step(
+                block.attention_layer.W_O,
+                block_grads['attn']['W_O'],
+                path=('stack', i, 'attn', 'W_O')
+            )
 
             # Update FFN params
-            block.ffn.W1 -= self.lr * block_grads['ffn']['W1']
-            block.ffn.B1 -= self.lr * block_grads['ffn']['B1']
-            block.ffn.W2 -= self.lr * block_grads['ffn']['W2']
-            block.ffn.B2 -= self.lr * block_grads['ffn']['B2']
+            block.ffn.W1 = self.optimizer.step(
+                block.ffn.W1,
+                block_grads['ffn']['W1'],
+                path=('stack', i, 'ffn', 'W1')
+            )
+            block.ffn.B1 = self.optimizer.step(
+                block.ffn.B1,
+                block_grads['ffn']['B1'],
+                path=('stack', i, 'ffn', 'B1')
+            )
+            block.ffn.W2 = self.optimizer.step(
+                block.ffn.W2,
+                block_grads['ffn']['W2'],
+                path=('stack', i, 'ffn', 'W2')
+            )
+            block.ffn.B2 = self.optimizer.step(
+                block.ffn.B2,
+                block_grads['ffn']['B2'],
+                path=('stack', i, 'ffn', 'B2')
+            )
 
             # Update LayerNorm params
-            block.gamma_1 -= self.lr * block_grads['gamma_1']
-            block.beta_1 -= self.lr * block_grads['beta_1']
-            block.gamma_2 -= self.lr * block_grads['gamma_2']
-            block.beta_2 -= self.lr * block_grads['beta_2']
+            block.gamma_1 = self.optimizer.step(
+                block.gamma_1,
+                block_grads['gamma_1'],
+                path=('stack', i, 'gamma_1')
+            )
+            block.beta_1 = self.optimizer.step(
+                block.beta_1,
+                block_grads['beta_1'],
+                path=('stack', i, 'beta_1')
+            )
+            block.gamma_2 = self.optimizer.step(
+                block.gamma_2,
+                block_grads['gamma_2'],
+                path=('stack', i, 'gamma_2')
+            )
+            block.beta_2 = self.optimizer.step(
+                block.beta_2,
+                block_grads['beta_2'],
+                path=('stack', i, 'beta_2')
+            )
 
         # Update output layer
-        self.output_layer.W_out -= self.lr * grads['output']['W_out']
-        self.output_layer.b_out -= self.lr * grads['output']['b_out']
+        self.output_layer.W_out = self.optimizer.step(
+            self.output_layer.W_out,
+            grads['output']['W_out'],
+            path=('output', 'W_out')
+        )
+        self.output_layer.b_out = self.optimizer.step(
+            self.output_layer.b_out,
+            grads['output']['b_out'],
+            path=('output', 'b_out')
+        )
+        
 
     def _get_timestamped_checkpoint_path(self, base_path):
         """
@@ -237,31 +306,42 @@ class Trainer:
         timestamped_checkpoint = self._get_timestamped_checkpoint_path(checkpoint_path)
         print(f"Checkpoints will be saved to: {timestamped_checkpoint}")
 
+        # print(f"Creating batches with batch_size={batch_size}...")
         batches = self.create_batches(batch_size)
+        # print(f"Created {len(batches)} batches")
 
         gc.disable()
 
         try:
             for epoch in range(epochs):
                 total_loss = 0
+                print(f"\nStarting epoch {epoch+1}/{epochs}")
 
-                for batch in tqdm(batches, desc=f"Epoch {epoch+1}/{epochs}", leave=False):
+                for batch_idx, batch in enumerate(tqdm(batches, desc=f"Epoch {epoch+1}/{epochs}", leave=False, file=sys.stderr)):
                     start_time = t.time()
 
+                    # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
                     batch_jax = jnp.array(batch)
+                    # print(f"  Shape: {batch_jax.shape}")
 
                     # Create targets (shift by 1 position)
                     input_tokens = batch_jax[:, :-1]
                     target_tokens = batch_jax[:, 1:]
+                    # print(f"  Input shape: {input_tokens.shape}, Target shape: {target_tokens.shape}")
 
-                    # Forward + backward in ONE step (JAX magic!)
+                    # print(f"  Computing loss and gradients (JIT compiling on first batch)...")
                     loss, grads = self.compute_loss_and_grads(input_tokens, target_tokens)
+                    # print(f"  Loss computed: {float(loss):.4f}")
 
                     # Update parameters
+                    # print(f"  Updating parameters...")
                     self.update_params(grads)
 
                     total_loss += float(loss)  # Convert JAX scalar to Python float
+
+                    batch_time = t.time() - start_time
+                    # print(f"  Batch complete in {batch_time:.2f}s")
 
                 avg_loss = total_loss / len(batches)
                 print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}")
@@ -372,6 +452,8 @@ class Trainer:
             'positional_encodings': self.embedding_layer.positional_encodings,
             'stack': [block.get_params() for block in self.transformer_stack.blocks],
             'output': self.output_layer.get_params(),
+            'optimizer_state': self.optimizer.state,
+            'optimizer_t': self.optimizer.t,
             'config': {
                 'num_blocks': self.num_blocks,
                 'num_heads': self.num_heads,
@@ -411,6 +493,11 @@ class Trainer:
 
         self.output_layer.W_out = checkpoint['output']['W_out']
         self.output_layer.b_out = checkpoint['output']['b_out']
+
+        # Restore optimizer state
+        if 'optimizer_state' in checkpoint:
+            self.optimizer.state = checkpoint['optimizer_state']
+            self.optimizer.t = checkpoint['optimizer_t']
 
         print(f"Loaded checkpoint from {path}")
         if 'config' in checkpoint:
@@ -497,7 +584,7 @@ class Trainer:
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
         try:
-            return self.tokenizer.decode(generated_token_ids)
+            return self.tokenizer.decode(generated_token_ids), next_token, self.output_layer.b_out
         except (UnicodeDecodeError, Exception) as e:
             print(f"Warning: Decoding error: {e}")
             print(f"Generated token IDs: {generated_token_ids[:20]}...")
@@ -515,6 +602,25 @@ class Trainer:
             ]
             batches.append(np.array(padded_batches))
         return batches
+    
+    def extend_training(self, checkpoint_path, epochs=10, batch_size=20, save_every=5):
+        print(f"Loading checkpoint from {checkpoint_path}...")
+        self.load_checkpoint(checkpoint_path)
+
+        base_name = "artifacts/training_logs/training_logs.pkl"
+        new_checkpoint = self._get_timestamped_checkpoint_path(base_name)
+        print(f"Extended training will save to {new_checkpoint}")
+
+        print(f"Continuing training for {epochs} additional epochs...")
+        self.train(
+            epochs=epochs,
+            batch_size=batch_size,
+            checkpoint_path=new_checkpoint,
+            save_every=save_every
+        )
+
+        print(f"Extended training to {new_checkpoint}")
+
 
 
 

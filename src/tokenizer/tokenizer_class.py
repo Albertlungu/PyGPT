@@ -3,6 +3,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import xml.etree.ElementTree as ET
+import json
 import re
 from tqdm import tqdm
 import pickle
@@ -44,7 +45,6 @@ class BPETokenizer:
         """
         Initializes a BPETokenizer object.
         If input is None, vocab size is set to 1000.
-            OUTDATED --> No longer uses input, instead, uses harcoded value of 32k vocab size
         """
         self.vocab_size = vocab_size or self.default_vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
         self.base_vocab_size = 256
@@ -52,8 +52,9 @@ class BPETokenizer:
         self.vocab = {idx: bytes([idx]) for idx in range(256)}
         for (p0,p1), idx in self.merges.items():
             self.vocab[idx] = self.vocab[p0] + self.vocab[p1]
+        self._vocab_dirty = False  # Track if vocab needs rebuilding
         self._ensure_vocab()
-        
+
         self.eos_token_id = self.vocab_size
         self.vocab[self.eos_token_id] = "b<EOS>"
         self.vocab_size += 1
@@ -70,34 +71,36 @@ class BPETokenizer:
         for (p0, p1), idx in sorted(self.merges.items(), key=lambda item: item[1]):
             vocab[idx] = vocab[p0] + vocab[p1]
         self.vocab = vocab
+        self._vocab_dirty = False
 
     def _ensure_vocab(self):
         """
         Ensures that the vocab dictionary is up-to-date with the merges dictionary.
-
-        If any of the merged token ids are not in the vocab dictionary, this function rebuilds the vocab dictionary by calling _rebuild_vocab.
+        Only rebuilds if the vocab is marked as dirty.
 
         This function should only be called internally when the merges dictionary is updated.
         """
-        if any(idx not in self.vocab for idx in self.merges.values()):
+        if self._vocab_dirty:
             self._rebuild_vocab()
 
     def get_stats(self, input):
         """
         Given a text, returns a dictionary of pair counts.
-        OPTIMIZED: Use defaultdict for faster counting.
+        OPTIMIZED: Use direct iteration without numpy overhead.
         The key is a tuple of two adjacent characters, and the value is the count of that pair.
         """
-        from collections import defaultdict
-        counts = defaultdict(int)
-        for pair in zip(input, input[1:]):
-            counts[pair] += 1
-        return dict(counts)
+        from collections import Counter
+
+        if len(input) < 2:
+            return {}
+
+        # Use Counter for fastest counting - it's implemented in C
+        return dict(Counter(zip(input, input[1:])))
 
     def merge(self, input, pair, idx):
         """
         Merge a pair of adjacent ids in a list of ids to a single idx.
-        OPTIMIZED: Use list comprehension for faster execution.
+        OPTIMIZED: Fast single-pass merge with pre-allocated list.
 
         Args:
             input (list): The list of ids to merge.
@@ -107,13 +110,17 @@ class BPETokenizer:
         Returns:
             list: The list of ids with the pair merged.
         """
+        if len(input) < 2:
+            return input
+
+        pair_0, pair_1 = pair
         new_input = []
         i = 0
-        pair_0, pair_1 = pair  # Unpack once to avoid repeated tuple indexing
+        input_len = len(input)
 
-        while i < len(input):
+        while i < input_len:
             # Check if we can merge at this position
-            if i < len(input) - 1 and input[i] == pair_0 and input[i + 1] == pair_1:
+            if i < input_len - 1 and input[i] == pair_0 and input[i + 1] == pair_1:
                 new_input.append(idx)
                 i += 2
             else:
@@ -122,36 +129,46 @@ class BPETokenizer:
 
         return new_input
 
-    def make_merges(self, input, dataset_length):
+    def make_merges(self, input, dataset_length, min_freq_threshold=2):
         """
-        Merge adjacent ids in a list of ids until the vocab size is reached. Why? This is to increase the vocab size. This is to compress more tokens into a a single token, making the context length more compact, and the model can remember more at a time.
+        Merge adjacent ids in a list of ids until the vocab size is reached.
+
         Args:
             input (list): The list of ids to merge.
             dataset_length (int): The length of the dataset to consider for merges.
+            min_freq_threshold (int): Minimum frequency for a pair to be merged (default: 2).
 
         Returns:
             list: The list of ids with adjacent ids merged until the vocab size is reached.
         """
-
         num_merges = self.vocab_size - self.base_vocab_size
         merges = {}
         input = list(input)
         base_vocab_start = self.base_vocab_size
-        print("Starging merges now: ")
-        for i in tqdm(range(num_merges)): # iterating over the number of merges  num_merges//100
-            stats = self.get_stats(input[:dataset_length]) # getting stats
-            # print("Got stats")
+        print("Starting merges now: ")
+
+        for i in tqdm(range(num_merges)):
+            stats = self.get_stats(input[:dataset_length])
+
             if not stats:
-                # print("Stats are empty, breaking")
-                break # safety check
-            pair = max(stats, key=stats.get) # getting the pair with the highest count (most repeated pair)
-            # print("Most repeated pair: ", pair)
+                print(f"\nNo more pairs to merge. Stopping at {i} merges.")
+                break
+
+            pair = max(stats, key=stats.get)
+            max_count = stats[pair]
+
+            # Early stopping: if the most frequent pair occurs less than threshold times
+            if max_count < min_freq_threshold:
+                print(f"\nMost frequent pair only appears {max_count} times. Stopping early at {i} merges.")
+                break
+
             idx = base_vocab_start + i
-            # print(f"merging {pair} into a new token: {idx}")
-            input = self.merge(input[:dataset_length], pair, idx) # merging the most repeated pair into one token
+            input = self.merge(input[:dataset_length], pair, idx)
             merges[pair] = idx
             self.vocab[idx] = self.vocab[pair[0]] + self.vocab[pair[1]]
+
         self.merges = merges
+        self._vocab_dirty = True  # Mark vocab as needing rebuild
         self._ensure_vocab()
         return input
 
@@ -167,7 +184,7 @@ class BPETokenizer:
     def encode(self, text):
         """
         Given a string of text, returns the corresponding list of ids.
-        OPTIMIZED: Precompute merge priorities and use efficient merging.
+        OPTIMIZED: More efficient pair finding and merging strategy.
         """
         tokens = list(text.encode("utf-8"))
 
@@ -175,29 +192,34 @@ class BPETokenizer:
         if len(tokens) < 2:
             return tokens
 
-        # Cache merge priorities (lower = merge earlier)
-        # This avoids repeated dictionary lookups
-        merge_priorities = {pair: idx for pair, idx in self.merges.items()}
-
+        # Continue merging until no more merges are possible
         while len(tokens) >= 2:
-            # Find all pairs and their positions in one pass
-            pairs = []
+            # Find the best pair to merge in this iteration
+            best_pair = None
+            best_idx = None
+            min_merge_idx = float('inf')
+
+            # Scan through tokens to find the pair with highest priority (lowest merge index)
             for i in range(len(tokens) - 1):
                 pair = (tokens[i], tokens[i + 1])
-                if pair in merge_priorities:
-                    pairs.append((merge_priorities[pair], pair, i))
+                if pair in self.merges:
+                    merge_idx = self.merges[pair]
+                    if merge_idx < min_merge_idx:
+                        min_merge_idx = merge_idx
+                        best_pair = pair
+                        best_idx = merge_idx
 
-            if not pairs:
+            # If no mergeable pair found, we're done
+            if best_pair is None:
                 break
 
-            # Get the pair with lowest merge index (highest priority)
-            _, best_pair, _ = min(pairs)
-            idx = merge_priorities[best_pair]
-
-            # Merge in-place style (more efficient)
-            tokens = self.merge(tokens, best_pair, idx)
+            # Merge the best pair
+            tokens = self.merge(tokens, best_pair, best_idx)
 
         return tokens
+    
+    def export_to_json(self, path):
+        pass
 
 def clean_alpaca_text(file_path):
     """
@@ -242,7 +264,7 @@ def main():
     # Variable declaration (params for tokenizer class)
     dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 2500
+    vocab_size = 5000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
