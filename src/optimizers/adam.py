@@ -11,10 +11,32 @@ class AdamNested:
         self.t = 0
         self.state = {}
 
+        # Create JIT-compiled Adam step function
+        self._jit_adam_step = jax.jit(self._adam_step_fn)
+
     @staticmethod
-    def _get_state_key(path):
+    def _adam_step_fn(params, grads, m, v, t, beta1, beta2, lr, epsilon):
+        """Pure JAX function for Adam update (can be JIT compiled)."""
+        # Update biased first moment estimate
+        m_new = beta1 * m + (1 - beta1) * grads
+
+        # Update biased second moment estimate
+        v_new = beta2 * v + (1 - beta2) * (grads ** 2)
+
+        # Compute bias-corrected first moment
+        m_hat = m_new / (1 - beta1 ** t)
+
+        # Compute bias-corrected second moment
+        v_hat = v_new / (1 - beta2 ** t)
+
+        # Update parameters
+        updated_params = params - lr * m_hat / (jnp.sqrt(v_hat) + epsilon)
+
+        return updated_params, m_new, v_new
+
+    def _get_state_key(self, path):
         return str(path)
-    
+
     def _step_single(self, params, grads, path=()):
         key = self._get_state_key(path)
 
@@ -23,23 +45,21 @@ class AdamNested:
                 'm': jnp.zeros_like(params),
                 'v': jnp.zeros_like(params)
             }
-        
+
         m = self.state[key]['m']
         v = self.state[key]['v']
 
-        m = self.beta1 * m + (1-self.beta1) * grads
-        v = self.beta2 * v + (1-self.beta2) * grads**2
+        # Use JIT-compiled function
+        updated_params, m_new, v_new = self._jit_adam_step(
+            params, grads, m, v, self.t,
+            self.beta1, self.beta2, self.lr, self.epsilon
+        )
 
-        m_hat = m / (1 - self.beta1 ** self.t)
-        v_hat = v / (1 - self.beta2 ** self.t)
-
-        updated_params = params - self.lr * m_hat / (jnp.sqrt(v_hat) + self.epsilon)
-
-        self.state[key]['m'] = m
-        self.state[key]['v'] = v
+        self.state[key]['m'] = m_new
+        self.state[key]['v'] = v_new
 
         return updated_params
-    
+
     def step(self, params, grads, path=()):
         if len(path) == 0:
             self.t += 1
@@ -49,7 +69,7 @@ class AdamNested:
                 key: self.step(params[key], grads[key], path + (key,))
                 for key in params.keys()
             }
-        
+
         elif isinstance(params, (list, tuple)):
             updated = [
                 self.step(p, g, path + (i,))

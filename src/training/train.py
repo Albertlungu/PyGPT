@@ -77,6 +77,9 @@ class Trainer:
         # Create JIT-compiled loss and gradient function
         self._compiled_loss_and_grad = self._create_jit_loss_fn()
 
+        # Create JIT-compiled update function
+        self._compiled_update = self._create_jit_update_fn()
+
     def _create_jit_loss_fn(self):
         """
         Create a JIT-compiled function for computing loss and gradients.
@@ -114,6 +117,58 @@ class Trainer:
             return loss, grads
 
         return loss_and_grad_fn
+
+    def _create_jit_update_fn(self):
+        """
+        Create a JIT-compiled function for updating parameters with Adam.
+        This consolidates all parameter updates into a single JIT-compiled operation.
+        """
+        beta1 = self.optimizer.beta1
+        beta2 = self.optimizer.beta2
+        lr = self.optimizer.lr
+        epsilon = self.optimizer.epsilon
+
+        @jax.jit
+        def update_fn(params_tuple, grads_tuple, optimizer_state, t):
+            """
+            JIT-compiled Adam update for all parameters at once.
+
+            Args:
+                params_tuple: Tuple of all parameter arrays
+                grads_tuple: Tuple of all gradient arrays (same structure)
+                optimizer_state: Tuple of (m_tuple, v_tuple) where each is a tuple of moment arrays
+                t: Timestep
+
+            Returns:
+                (updated_params_tuple, new_optimizer_state)
+            """
+            m_tuple, v_tuple = optimizer_state
+
+            updated_params = []
+            updated_m = []
+            updated_v = []
+
+            for params, grads, m, v in zip(params_tuple, grads_tuple, m_tuple, v_tuple):
+                # Update biased first moment
+                m_new = beta1 * m + (1 - beta1) * grads
+
+                # Update biased second moment
+                v_new = beta2 * v + (1 - beta2) * (grads ** 2)
+
+                # Bias correction
+                m_hat = m_new / (1 - beta1 ** t)
+                v_hat = v_new / (1 - beta2 ** t)
+
+                # Update parameters
+                params_new = params - lr * m_hat / (jnp.sqrt(v_hat) + epsilon)
+
+                updated_params.append(params_new)
+                updated_m.append(m_new)
+                updated_v.append(v_new)
+
+            return tuple(updated_params), (tuple(updated_m), tuple(updated_v))
+
+        return update_fn
 
     def fwd(self, token_ids):
         """
@@ -166,105 +221,124 @@ class Trainer:
 
     def update_params(self, grads):
         """
-        Update all parameters using Adam optimizer.
+        Update all parameters using JIT-compiled Adam optimizer.
 
         Args:
             grads (dict): Gradients from compute_loss_and_grads()
         """
-        # Update embedding layer
+        # Flatten all parameters into a single tuple
         embed_grads, pos_grads = grads['embeddings']
-        self.embedding_layer.embeddings = self.optimizer.step(
-            self.embedding_layer.embeddings,
-            embed_grads,
-            path=('embeddings',)
-        )
-        self.embedding_layer.positional_encodings = self.optimizer.step(
-            self.embedding_layer.positional_encodings,
-            pos_grads,
-            path=('positional',)
-        )
 
-        # Update transformer stack (all blocks)
+        params_list = [
+            self.embedding_layer.embeddings,
+            self.embedding_layer.positional_encodings
+        ]
+
+        grads_list = [
+            embed_grads,
+            pos_grads
+        ]
+
+        # Add all transformer block parameters
         for i, block in enumerate(self.transformer_stack.blocks):
             block_grads = grads['stack'][i]
 
-            # Update attention params
-            block.attention_layer.W_Q = self.optimizer.step(
+            params_list.extend([
                 block.attention_layer.W_Q,
-                block_grads['attn']['W_Q'],
-                path=('stack', i, 'attn', 'W_Q')
-            )
-            block.attention_layer.W_K = self.optimizer.step(
                 block.attention_layer.W_K,
-                block_grads['attn']['W_K'],
-                path=('stack', i, 'attn', 'W_K')
-            )
-            block.attention_layer.W_V = self.optimizer.step(
                 block.attention_layer.W_V,
-                block_grads['attn']['W_V'],
-                path=('stack', i, 'attn', 'W_V')
-            )
-            block.attention_layer.W_O = self.optimizer.step(
                 block.attention_layer.W_O,
-                block_grads['attn']['W_O'],
-                path=('stack', i, 'attn', 'W_O')
-            )
-
-            # Update FFN params
-            block.ffn.W1 = self.optimizer.step(
                 block.ffn.W1,
-                block_grads['ffn']['W1'],
-                path=('stack', i, 'ffn', 'W1')
-            )
-            block.ffn.B1 = self.optimizer.step(
                 block.ffn.B1,
-                block_grads['ffn']['B1'],
-                path=('stack', i, 'ffn', 'B1')
-            )
-            block.ffn.W2 = self.optimizer.step(
                 block.ffn.W2,
-                block_grads['ffn']['W2'],
-                path=('stack', i, 'ffn', 'W2')
-            )
-            block.ffn.B2 = self.optimizer.step(
                 block.ffn.B2,
-                block_grads['ffn']['B2'],
-                path=('stack', i, 'ffn', 'B2')
-            )
-
-            # Update LayerNorm params
-            block.gamma_1 = self.optimizer.step(
                 block.gamma_1,
-                block_grads['gamma_1'],
-                path=('stack', i, 'gamma_1')
-            )
-            block.beta_1 = self.optimizer.step(
                 block.beta_1,
-                block_grads['beta_1'],
-                path=('stack', i, 'beta_1')
-            )
-            block.gamma_2 = self.optimizer.step(
                 block.gamma_2,
-                block_grads['gamma_2'],
-                path=('stack', i, 'gamma_2')
-            )
-            block.beta_2 = self.optimizer.step(
-                block.beta_2,
-                block_grads['beta_2'],
-                path=('stack', i, 'beta_2')
-            )
+                block.beta_2
+            ])
 
-        # Update output layer
-        self.output_layer.W_out = self.optimizer.step(
+            grads_list.extend([
+                block_grads['attn']['W_Q'],
+                block_grads['attn']['W_K'],
+                block_grads['attn']['W_V'],
+                block_grads['attn']['W_O'],
+                block_grads['ffn']['W1'],
+                block_grads['ffn']['B1'],
+                block_grads['ffn']['W2'],
+                block_grads['ffn']['B2'],
+                block_grads['gamma_1'],
+                block_grads['beta_1'],
+                block_grads['gamma_2'],
+                block_grads['beta_2']
+            ])
+
+        # Add output layer parameters
+        params_list.extend([
             self.output_layer.W_out,
+            self.output_layer.b_out
+        ])
+
+        grads_list.extend([
             grads['output']['W_out'],
-            path=('output', 'W_out')
+            grads['output']['b_out']
+        ])
+
+        # Initialize optimizer state if needed
+        if not hasattr(self, '_adam_m'):
+            self._adam_m = tuple(jnp.zeros_like(p) for p in params_list)
+            self._adam_v = tuple(jnp.zeros_like(p) for p in params_list)
+
+        # Increment timestep
+        self.optimizer.t += 1
+
+        # Run JIT-compiled update
+        params_tuple = tuple(params_list)
+        grads_tuple = tuple(grads_list)
+        optimizer_state = (self._adam_m, self._adam_v)
+
+        updated_params, new_state = self._compiled_update(
+            params_tuple, grads_tuple, optimizer_state, self.optimizer.t
         )
-        self.output_layer.b_out = self.optimizer.step(
-            self.output_layer.b_out,
-            grads['output']['b_out'],
-            path=('output', 'b_out')
-        )
+
+        self._adam_m, self._adam_v = new_state
+
+        # Unpack updated parameters back to model
+        idx = 0
+        self.embedding_layer.embeddings = updated_params[idx]
+        idx += 1
+        self.embedding_layer.positional_encodings = updated_params[idx]
+        idx += 1
+
+        for block in self.transformer_stack.blocks:
+            block.attention_layer.W_Q = updated_params[idx]
+            idx += 1
+            block.attention_layer.W_K = updated_params[idx]
+            idx += 1
+            block.attention_layer.W_V = updated_params[idx]
+            idx += 1
+            block.attention_layer.W_O = updated_params[idx]
+            idx += 1
+            block.ffn.W1 = updated_params[idx]
+            idx += 1
+            block.ffn.B1 = updated_params[idx]
+            idx += 1
+            block.ffn.W2 = updated_params[idx]
+            idx += 1
+            block.ffn.B2 = updated_params[idx]
+            idx += 1
+            block.gamma_1 = updated_params[idx]
+            idx += 1
+            block.beta_1 = updated_params[idx]
+            idx += 1
+            block.gamma_2 = updated_params[idx]
+            idx += 1
+            block.beta_2 = updated_params[idx]
+            idx += 1
+
+        self.output_layer.W_out = updated_params[idx]
+        idx += 1
+        self.output_layer.b_out = updated_params[idx]
         
 
     def _get_timestamped_checkpoint_path(self, base_path):
@@ -452,7 +526,6 @@ class Trainer:
             'positional_encodings': self.embedding_layer.positional_encodings,
             'stack': [block.get_params() for block in self.transformer_stack.blocks],
             'output': self.output_layer.get_params(),
-            'optimizer_state': self.optimizer.state,
             'optimizer_t': self.optimizer.t,
             'config': {
                 'num_blocks': self.num_blocks,
@@ -462,6 +535,12 @@ class Trainer:
                 'embedding_dim': self.embedding_layer.embedding_dim
             }
         }
+
+        # Save optimizer state if it exists
+        if hasattr(self, '_adam_m'):
+            checkpoint['adam_m'] = self._adam_m
+            checkpoint['adam_v'] = self._adam_v
+
         with open(path, "wb") as f:
             pickle.dump(checkpoint, f)
 
@@ -495,7 +574,12 @@ class Trainer:
         self.output_layer.b_out = checkpoint['output']['b_out']
 
         # Restore optimizer state
-        if 'optimizer_state' in checkpoint:
+        if 'adam_m' in checkpoint:
+            self._adam_m = checkpoint['adam_m']
+            self._adam_v = checkpoint['adam_v']
+            self.optimizer.t = checkpoint['optimizer_t']
+        # Legacy support for old checkpoint format
+        elif 'optimizer_state' in checkpoint:
             self.optimizer.state = checkpoint['optimizer_state']
             self.optimizer.t = checkpoint['optimizer_t']
 
