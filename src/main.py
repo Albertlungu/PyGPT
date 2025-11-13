@@ -28,10 +28,10 @@ def train():
     train_data = dataset["train"]
     train_data = train_data.select(range(max_lines))
     
-    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
-        for ex in train_data:
-            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
-            f.write(text + "\n")
+    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
+    #     for ex in train_data:
+    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+    #         f.write(text + "\n")
 
     training_texts = []
     with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
@@ -45,7 +45,7 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
-        lr=1e-5,
+        lr=1e-3,
         num_blocks=8,
         num_heads=4
     )
@@ -62,10 +62,10 @@ def train():
     # Train with automatic checkpointing
     # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=10,       # Reduced from 10 to 2 epochs
-        batch_size=16,  
+        epochs=50,       # Reduced from 10 to 2 epochs
+        batch_size=64,  
         checkpoint_path="artifacts/training_logs/jax_training_latest.pkl",
-        save_every=2    # Save every 2 epochs
+        save_every=5    # Save every 2 epochs
     )
 
     end_train = time.time() - train_time
@@ -75,11 +75,38 @@ def train():
 
     # Test generation
     prompt = "What is 5+5?"
-    generated_text = trainer.generate(prompt, max_length=50)
+    generated_text = trainer.generate(prompt, max_length=500)
     print("="*60)
     print("Generated text:")
-    print(generated_text)
+    print(generated_text[0])
     print("="*60)
+
+def extend():
+
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+
+    training_texts = []
+    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
+        for i, line in enumerate(f):
+            training_texts.append(line.strip())
+
+
+    trainer = Trainer(
+        tokenizer,
+        training_texts,
+        lr=5e-3,
+        num_blocks=8,  # Must match checkpoint!
+        num_heads=4   # Must match checkpoint!
+    )
+
+    trainer.extend_training(
+        checkpoint_path="artifacts/training_logs/training_logs_46605loss.pkl",
+        epochs=10,
+        batch_size=32,
+        save_every=2
+    )
 
 def main():
     """Load a trained model and generate text."""
@@ -93,12 +120,12 @@ def main():
     trainer = Trainer(
         tokenizer,
         dummy_input,
-        lr=1e-5,
+        lr=1e-4,
         num_blocks=8,  # Must match checkpoint!
-        num_heads=4    # Must match checkpoint!
+        num_heads=4   # Must match checkpoint!
     )
 
-    checkpoint_path = "artifacts/training_logs/jax_training_latest_2025-11-12_16-38-27.pkl"
+    checkpoint_path = "artifacts/training_logs/training_logs_46605loss.pkl"
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -111,9 +138,9 @@ def main():
     # Test multiple prompts
     prompts = [
         "What is your name?",
-        "Hello world",
+        "Document the steps needed to deploy a machine learning model in an Android application.",
         "The capital of France is",
-        "Once upon a time"
+        "Rewrite the sentence 'The cat chased the mouse' in the past tense."
     ]
 
     for prompt in prompts:
@@ -129,18 +156,19 @@ def main():
             repetition_penalty=1.5
         )
 
-        print(f"Generated: '{generated_text}'")
+        print(f"Generated: '{generated_text[0]}'")
         print()
 
 if __name__ == "__main__":
     start = time.time()
 
-    # Choose what to run:
-    # Option 1: Train a new model (creates JAX checkpoint)
-    train()
-
-    # Option 2: Load existing model and generate
-    # main()
+    main_or_train = input("M/T/E? ")
+    if main_or_train.lower() == 't':
+        train()
+    elif main_or_train.lower() == 'e':
+        extend()
+    else:
+        main()
 
     end = time.time()
     print("="*60)

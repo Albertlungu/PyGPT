@@ -1,5 +1,6 @@
 *.xml
 *jax_training*
+*training_logs*
 *.txt
 
 **/*.pyc
