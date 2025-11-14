@@ -34,30 +34,35 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, user_input, lr=1e-4, num_blocks=4, num_heads=8):
+    def __init__(self, tokenizer, user_input=None, pretokenized_data=None, lr=1e-4, num_blocks=4, num_heads=8):
         """
         Initialize Trainer with model architecture.
 
         Args:
             tokenizer: BPE tokenizer instance
-            user_input (list): List of text strings for training
+            user_input (list): List of text strings for training (default: None)
+            pretokenized_data (loaded pkl file): The training data tokenized before training into a pkl file. Use pickle.load() to give here. (default: None)
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
             num_heads (int): Number of attention heads per block (default: 8)
         """
         self.tokenizer = tokenizer
-        self.token_ids = []
-
-        for text in user_input:
-            ids = tokenizer.encode(text)
-            ids.append(tokenizer.eos_token_id)
-            self.token_ids.append(ids)
-
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
             embedding_dim=256,
             max_seq_length=256  # Increased to handle longer sequences
         )
+
+        self.pretokenized_data = pretokenized_data
+        if self.pretokenized_data is not None:
+            self.token_ids = self.pretokenized_data
+        elif user_input is not None:
+            self.token_ids = []
+            for text in user_input:
+                ids = tokenizer.encode(text)
+                ids.append(tokenizer.eos_token_id)
+                self.token_ids.append(ids)
+
 
         self.num_blocks = num_blocks
         self.num_heads = num_heads

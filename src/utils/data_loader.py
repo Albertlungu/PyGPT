@@ -9,8 +9,10 @@ def save_dolly(path):
         path (str): Output file path for the formatted dataset
     """
     print("Loading Databricks Dolly-15k dataset...")
+    dataset_len = 0
     ds = load_dataset("databricks/databricks-dolly-15k")
     ds = ds['train']
+    ds = ds.select(range(dataset_len)) if dataset_len != 0 else ds
     print(f"Loaded {len(ds)} examples")
 
     print(f"Writing to {path}...")

@@ -35,10 +35,8 @@ def train():
     #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
     #         f.write(text + "\n")
 
-    training_texts = []
-    with open("training_data/pygpt_training_corpus.txt", "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            training_texts.append(line.strip())
+    with open("artifacts/tokenized_training_data.pkl", "rb") as f:
+        tokenized_data = pickle.load(f)
 
     print("="*60)
     print("Appended training texts to list")
@@ -46,7 +44,7 @@ def train():
 
     trainer = Trainer(
         tokenizer=tokenizer,
-        user_input=training_texts,
+        pretokenized_data=tokenized_data,
         lr=5e-4,
         num_blocks=4,
         num_heads=4
