@@ -132,6 +132,7 @@ class BPETokenizer:
     def make_merges(self, input, dataset_length, min_freq_threshold=2):
         """
         Merge adjacent ids in a list of ids until the vocab size is reached.
+        OPTIMIZED: Incremental statistics tracking for massive speedup.
 
         Args:
             input (list): The list of ids to merge.
@@ -141,31 +142,87 @@ class BPETokenizer:
         Returns:
             list: The list of ids with adjacent ids merged until the vocab size is reached.
         """
+        from collections import defaultdict
+
         num_merges = self.vocab_size - self.base_vocab_size
         merges = {}
-        input = list(input)
+        input = list(input[:dataset_length])
         base_vocab_start = self.base_vocab_size
         print("Starting merges now: ")
 
-        for i in tqdm(range(num_merges)):
-            stats = self.get_stats(input[:dataset_length])
+        # Build initial pair statistics ONCE
+        print("Building initial statistics...")
+        stats = defaultdict(int)
+        for i in range(len(input) - 1):
+            pair = (input[i], input[i + 1])
+            stats[pair] += 1
 
+        for merge_num in tqdm(range(num_merges)):
             if not stats:
-                print(f"\nNo more pairs to merge. Stopping at {i} merges.")
+                print(f"\nNo more pairs to merge. Stopping at {merge_num} merges.")
                 break
 
+            # Find the most frequent pair
             pair = max(stats, key=stats.get)
             max_count = stats[pair]
 
             # Early stopping: if the most frequent pair occurs less than threshold times
             if max_count < min_freq_threshold:
-                print(f"\nMost frequent pair only appears {max_count} times. Stopping early at {i} merges.")
+                print(f"\nMost frequent pair only appears {max_count} times. Stopping early at {merge_num} merges.")
                 break
 
-            idx = base_vocab_start + i
-            input = self.merge(input[:dataset_length], pair, idx)
+            idx = base_vocab_start + merge_num
+
+            # Perform the merge with incremental statistics update
+            pair_0, pair_1 = pair
+            new_input = []
+            i = 0
+
+            # Track what pairs are affected by this merge for incremental stats update
+            pairs_to_decrement = []
+            pairs_to_increment = []
+
+            while i < len(input):
+                # Check if we can merge at this position
+                if i < len(input) - 1 and input[i] == pair_0 and input[i + 1] == pair_1:
+                    # Found a match - merge it
+
+                    # Record pairs that will be removed
+                    if i > 0:
+                        # The pair before this merge position changes
+                        old_left_pair = (input[i - 1], input[i])
+                        pairs_to_decrement.append(old_left_pair)
+                        new_left_pair = (input[i - 1], idx)
+                        pairs_to_increment.append(new_left_pair)
+
+                    if i + 2 < len(input):
+                        # The pair after this merge position changes
+                        old_right_pair = (input[i + 1], input[i + 2])
+                        pairs_to_decrement.append(old_right_pair)
+                        new_right_pair = (idx, input[i + 2])
+                        pairs_to_increment.append(new_right_pair)
+
+                    # The merged pair itself is removed
+                    pairs_to_decrement.append(pair)
+
+                    new_input.append(idx)
+                    i += 2
+                else:
+                    new_input.append(input[i])
+                    i += 1
+
+            # Update statistics incrementally
+            for p in pairs_to_decrement:
+                stats[p] -= 1
+                if stats[p] <= 0:
+                    del stats[p]
+
+            for p in pairs_to_increment:
+                stats[p] += 1
+
+            input = new_input
             merges[pair] = idx
-            self.vocab[idx] = self.vocab[pair[0]] + self.vocab[pair[1]]
+            self.vocab[idx] = self.vocab[pair_0] + self.vocab[pair_1]
 
         self.merges = merges
         self._vocab_dirty = True  # Mark vocab as needing rebuild
@@ -223,7 +280,7 @@ class BPETokenizer:
 
 def clean_text(file_path):
     """
-    Read Alpaca dataset and strip out 'Instruction:', 'Input:', and 'Output:' labels.
+    Read dataset and strip out labels.
     Returns clean text with only the actual content.
     """
     clean_text = []
@@ -238,10 +295,10 @@ def clean_text(file_path):
                 line = line.replace("Input:", "").strip()
             elif line.startswith("Output:"):
                 line = line.replace("Output:", "").strip()
-            elif line.startswith("Final Output:"):
-                line = line.replace("Output:", "").strip()
-            elif line.startswith('Solution: '):
-                line = line.replace('Solution: ', "").strip()
+            elif line.startswith("Response:"):
+                line = line.replace("Response:", "").strip()
+            elif line.startswith("Context:"):
+                line = line.replace("Context:", "").strip()
 
             # Keep the line if it has content
             if line:
@@ -253,11 +310,6 @@ def main():
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
-    # Choose your training data source:
-    # Option 1: Wikipedia data
-    # training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read()
-
-    # Option 2: Alpaca data (cleaned)
     training_data = clean_text("training_data/pygpt_training_corpus.txt")
     print("Read and cleaned training data")
 
@@ -266,9 +318,8 @@ def main():
     # print(list(tokens)[:100])
 
     # Variable declaration (params for tokenizer class)
-    dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
-    # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 32000 # Higher vocab size ==> higher compression ratio
+    dataset_length = len(tokens)
+    vocab_size = 32000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
@@ -288,23 +339,60 @@ def main():
     # with open('artifacts/tokenizer.pkl', 'rb') as f:
     #     tokenizer = pickle.load(f) # loading the tokenizer object from the pickle file
 
+def tokenize_training_data(path):
+    """
+    Tokenizes training data and saves it into a pickled file to save time in training.
+
+    Args:
+        path (str): Path to the training data
+    """
+    with open("artifacts/tokenizer.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+    
+    with open(path, "r") as f:
+        total_lines = sum(1 for _ in f)
+
+    tokenized_training_data = []
+    with open(path, "r") as f:
+        for line in tqdm(f, total=total_lines, desc="Tokenizing training data..."):
+            # Clean each line before tokenizing
+            cleaned_line = line.strip()
+            
+            # Remove labels
+            for label in ["Instruction:", "Input:", "Output:", "Response:", "Context:"]:
+                cleaned_line = cleaned_line.replace(label, "").strip()
+            
+            # Only tokenize non-empty lines
+            if cleaned_line:
+                ids = tokenizer.encode(cleaned_line)
+                ids.append(tokenizer.eos_token_id)
+                tokenized_training_data.append(ids)
+
+    
+    with open("artifacts/tokenized_training_data.pkl", "wb") as f:
+        pickle.dump(tokenized_training_data, f)
+
+
 def test_tokenizer(path):
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    training_texts = []
-    with open(path, "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            training_texts.append(line.strip())
-    
+    with open(path, "rb") as f:
+        tokenized_training_data = pickle.load(f)
 
-    ids = []
-    for i in training_texts:
-        ids.append(tokenizer.encode(i))
-
+    ids = tokenizer.encode("Hello World")
     print(ids)
+    text = tokenizer.decode(ids)
+    print(text)
+
+    for token_ids in tokenized_training_data[:10]:
+        decoded_text = tokenizer.decode(token_ids)
+        print("tokens: ", token_ids)
+        print("text: ", decoded_text)
 
 if __name__ == "__main__":
     main()
-    # test_tokenizer("tokenizer_training_data/alpaca_sample_utf8.txt")
+    # tokenize_training_data("training_data/pygpt_training_corpus.txt")
+    # test_tokenizer("artifacts/tokenized_training_data.pkl")
