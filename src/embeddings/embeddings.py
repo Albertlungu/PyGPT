@@ -50,12 +50,12 @@ class EmbeddingLayer:
     @staticmethod
     def pad_token_ids(max_len, token_ids, pad_token_id=0):
         batch_size = len(token_ids)
-        padded = jnp.full((batch_size, max_len), pad_token_id, dtype=jnp.float32)
+        padded = jnp.full((batch_size, max_len), pad_token_id, dtype=jnp.int32)
         lengths = jnp.array([min(len(seq), max_len) for seq in token_ids])
 
         def scatter_seq(i,seq):
             l = lengths[i]
-            return padded.at[i, :l].set(jnp.array(seq[:l]))
+            return padded.at[i, :l].set(jnp.array(seq[:l], dtype=jnp.int32))
 
         padded = jax.lax.fori_loop(0, batch_size, scatter_seq, padded)
         return padded
@@ -63,10 +63,26 @@ class EmbeddingLayer:
 
     @staticmethod
     def embedding_fwd(params, padded_token_ids, pad_token_id=0):
-        embeddings, positional_encodings = params # params[0] =  embeddings; params[1] = positional_encodings, is a tuple of the two.
+        # Unpack params - params is now a dict for consistency with other layers
+        embeddings = params['embeddings']
+        positional_encodings = params['positional_encodings']
+
+        # Ensure token_ids are integers for indexing
+        padded_token_ids = jnp.asarray(padded_token_ids, dtype=jnp.int32)
 
         mask = padded_token_ids != pad_token_id
-        token_embeddings = embeddings[padded_token_ids]
+
+        # Use one-hot encoding approach - fully differentiable and JIT compatible
+        # This is the correct way to do embedding lookup in JAX with autodiff
+        batch_size, seq_len = padded_token_ids.shape
+        vocab_size, embedding_dim = embeddings.shape
+
+        # Create one-hot encoding of token IDs
+        # This converts integer indices to a differentiable operation
+        token_ids_one_hot = jax.nn.one_hot(padded_token_ids, vocab_size)  # (batch, seq, vocab)
+
+        # Matrix multiply to get embeddings: (batch, seq, vocab) @ (vocab, embed_dim) = (batch, seq, embed_dim)
+        token_embeddings = jnp.einsum('bsv,ve->bse', token_ids_one_hot, embeddings)
         token_embeddings = token_embeddings * jnp.sqrt(embeddings.shape[1])
 
         seq_len = padded_token_ids.shape[1]
@@ -117,6 +133,13 @@ class EmbeddingLayer:
             self.max_seq_length = data['max_seq_length']
             self.positional_encodings = self.positional_encoding_class._create_positional_encoding()
 
+    def get_params(self):
+        """Get parameters as a dict for JAX functions (consistent with other layers)"""
+        return {
+            'embeddings': self.embeddings,
+            'positional_encodings': self.positional_encodings
+        }
+
     def get_params_and_grads(self):
         return (self.embeddings, self.positional_encodings)
 
@@ -131,6 +154,7 @@ def main():
         tokenizer._ensure_vocab()
 
     embedding_layer = EmbeddingLayer()
+
     
     print("="*60)
     print("Main ran with no errors")

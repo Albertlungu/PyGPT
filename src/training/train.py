@@ -2,6 +2,7 @@ import os
 import numpy as np
 import jax
 import jax.numpy as jnp
+import jax.tree_util as tree
 import sys
 from tqdm import tqdm
 import time as t
@@ -80,6 +81,12 @@ class Trainer:
         # Create JIT-compiled update function
         self._compiled_update = self._create_jit_update_fn()
 
+        # Initialize optimizer state (Adam moments) using pytree structure
+        # This avoids initialization overhead on first batch
+        initial_params = self._flatten_params()
+        self._adam_m = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
+        self._adam_v = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
+
     def _create_jit_loss_fn(self):
         """
         Create a JIT-compiled function for computing loss and gradients.
@@ -120,8 +127,8 @@ class Trainer:
 
     def _create_jit_update_fn(self):
         """
-        Create a JIT-compiled function for updating parameters with Adam.
-        This consolidates all parameter updates into a single JIT-compiled operation.
+        Create a JIT-compiled function for updating parameters with Adam using pytrees.
+        This is much faster than the tuple-based approach.
         """
         beta1 = self.optimizer.beta1
         beta2 = self.optimizer.beta2
@@ -129,46 +136,118 @@ class Trainer:
         epsilon = self.optimizer.epsilon
 
         @jax.jit
-        def update_fn(params_tuple, grads_tuple, optimizer_state, t):
+        def update_fn(params_pytree, grads_pytree, optimizer_state, t):
             """
-            JIT-compiled Adam update for all parameters at once.
+            JIT-compiled Adam update using pytrees (works on nested structures).
 
             Args:
-                params_tuple: Tuple of all parameter arrays
-                grads_tuple: Tuple of all gradient arrays (same structure)
-                optimizer_state: Tuple of (m_tuple, v_tuple) where each is a tuple of moment arrays
+                params_pytree: Nested dict of parameters (from _flatten_params)
+                grads_pytree: Nested dict of gradients (same structure)
+                optimizer_state: (m_pytree, v_pytree) - nested dicts of moment estimates
                 t: Timestep
 
             Returns:
-                (updated_params_tuple, new_optimizer_state)
+                (updated_params_pytree, new_optimizer_state)
             """
-            m_tuple, v_tuple = optimizer_state
+            m_pytree, v_pytree = optimizer_state
 
-            updated_params = []
-            updated_m = []
-            updated_v = []
-
-            for params, grads, m, v in zip(params_tuple, grads_tuple, m_tuple, v_tuple):
+            def adam_update_leaf(param, grad, m, v):
+                """Apply Adam update to a single parameter array."""
                 # Update biased first moment
-                m_new = beta1 * m + (1 - beta1) * grads
+                m_new = beta1 * m + (1 - beta1) * grad
 
                 # Update biased second moment
-                v_new = beta2 * v + (1 - beta2) * (grads ** 2)
+                v_new = beta2 * v + (1 - beta2) * (grad ** 2)
 
                 # Bias correction
                 m_hat = m_new / (1 - beta1 ** t)
                 v_hat = v_new / (1 - beta2 ** t)
 
                 # Update parameters
-                params_new = params - lr * m_hat / (jnp.sqrt(v_hat) + epsilon)
+                param_new = param - lr * m_hat / (jnp.sqrt(v_hat) + epsilon)
 
-                updated_params.append(params_new)
-                updated_m.append(m_new)
-                updated_v.append(v_new)
+                return param_new, m_new, v_new
 
-            return tuple(updated_params), (tuple(updated_m), tuple(updated_v))
+            # Apply adam_update_leaf to every leaf in the pytree
+            # This returns a pytree of tuples (param_new, m_new, v_new)
+            result_pytree = tree.tree_map(
+                adam_update_leaf,
+                params_pytree,
+                grads_pytree,
+                m_pytree,
+                v_pytree
+            )
+
+            # Unzip the tuples to get separate pytrees
+            # JAX treats tuples as PyTree nodes, so we need to use tree_transpose
+            # to properly unpack them
+            from jax.tree_util import tree_transpose, tree_structure
+
+            # Get the structure of the outer pytree (params) and inner structure (tuple of 3)
+            outer_treedef = tree_structure(params_pytree)
+            inner_treedef = tree_structure((0, 0, 0))  # 3-tuple structure
+
+            # Transpose: outer structure of dicts/lists, inner structure of 3-tuples
+            # -> inner structure of 3-tuples, outer structure of dicts/lists
+            transposed = tree_transpose(outer_treedef, inner_treedef, result_pytree)
+
+            # Now transposed is a 3-tuple of pytrees
+            updated_params, updated_m, updated_v = transposed
+
+            return updated_params, (updated_m, updated_v)
 
         return update_fn
+
+    def _flatten_params(self):
+        """
+        Get all parameters as a pytree (tuple structure).
+        This structure matches the gradient structure from compute_loss_and_grads.
+
+        Returns:
+            tuple: Nested tuple of all model parameters (embeddings, stack, output)
+        """
+        return (
+            self.embedding_layer.get_params(),
+            [block.get_params() for block in self.transformer_stack.blocks],
+            self.output_layer.get_params()
+        )
+
+    def _unflatten_params(self, params):
+        """
+        Set all parameters from a pytree (tuple structure).
+
+        Args:
+            params (tuple): Nested tuple of parameters matching _flatten_params structure
+                           (embeddings_dict, stack_list, output_dict)
+        """
+        embeddings_dict, stack_list, output_dict = params
+
+        # Update embedding layer
+        self.embedding_layer.embeddings = embeddings_dict['embeddings']
+        self.embedding_layer.positional_encodings = embeddings_dict['positional_encodings']
+
+        # Update transformer stack
+        for i, block_params in enumerate(stack_list):
+            block = self.transformer_stack.blocks[i]
+            # Update attention
+            block.attention_layer.W_Q = block_params['attn']['W_Q']
+            block.attention_layer.W_K = block_params['attn']['W_K']
+            block.attention_layer.W_V = block_params['attn']['W_V']
+            block.attention_layer.W_O = block_params['attn']['W_O']
+            # Update FFN
+            block.ffn.W1 = block_params['ffn']['W1']
+            block.ffn.B1 = block_params['ffn']['B1']
+            block.ffn.W2 = block_params['ffn']['W2']
+            block.ffn.B2 = block_params['ffn']['B2']
+            # Update LayerNorm
+            block.gamma_1 = block_params['gamma_1']
+            block.beta_1 = block_params['beta_1']
+            block.gamma_2 = block_params['gamma_2']
+            block.beta_2 = block_params['beta_2']
+
+        # Update output layer
+        self.output_layer.W_out = output_dict['W_out']
+        self.output_layer.b_out = output_dict['b_out']
 
     def fwd(self, token_ids):
         """
@@ -181,7 +260,7 @@ class Trainer:
             tuple: (transformer_out, logits)
         """
         embeddings, mask = EmbeddingLayer.embedding_fwd(
-            (self.embedding_layer.embeddings, self.embedding_layer.positional_encodings),
+            self.embedding_layer.get_params(),
             token_ids
         )
         transformer_out = self.transformer_stack.fwd(embeddings)
@@ -202,7 +281,7 @@ class Trainer:
         Returns:
             tuple: (loss, all_grads)
         """
-        embed_params = (self.embedding_layer.embeddings, self.embedding_layer.positional_encodings)
+        embed_params = self.embedding_layer.get_params()
         stack_params = [block.get_params() for block in self.transformer_stack.blocks]
         output_params = self.output_layer.get_params()
 
@@ -221,124 +300,38 @@ class Trainer:
 
     def update_params(self, grads):
         """
-        Update all parameters using JIT-compiled Adam optimizer.
+        Update all parameters using JIT-compiled Adam optimizer with pytrees.
+        This is much faster than the previous list-based approach.
 
         Args:
             grads (dict): Gradients from compute_loss_and_grads()
+                         Format: {'embeddings': dict, 'stack': list, 'output': dict}
         """
-        # Flatten all parameters into a single tuple
-        embed_grads, pos_grads = grads['embeddings']
+        # Get current parameters as pytree
+        params_pytree = self._flatten_params()
 
-        params_list = [
-            self.embedding_layer.embeddings,
-            self.embedding_layer.positional_encodings
-        ]
-
-        grads_list = [
-            embed_grads,
-            pos_grads
-        ]
-
-        # Add all transformer block parameters
-        for i, block in enumerate(self.transformer_stack.blocks):
-            block_grads = grads['stack'][i]
-
-            params_list.extend([
-                block.attention_layer.W_Q,
-                block.attention_layer.W_K,
-                block.attention_layer.W_V,
-                block.attention_layer.W_O,
-                block.ffn.W1,
-                block.ffn.B1,
-                block.ffn.W2,
-                block.ffn.B2,
-                block.gamma_1,
-                block.beta_1,
-                block.gamma_2,
-                block.beta_2
-            ])
-
-            grads_list.extend([
-                block_grads['attn']['W_Q'],
-                block_grads['attn']['W_K'],
-                block_grads['attn']['W_V'],
-                block_grads['attn']['W_O'],
-                block_grads['ffn']['W1'],
-                block_grads['ffn']['B1'],
-                block_grads['ffn']['W2'],
-                block_grads['ffn']['B2'],
-                block_grads['gamma_1'],
-                block_grads['beta_1'],
-                block_grads['gamma_2'],
-                block_grads['beta_2']
-            ])
-
-        # Add output layer parameters
-        params_list.extend([
-            self.output_layer.W_out,
-            self.output_layer.b_out
-        ])
-
-        grads_list.extend([
-            grads['output']['W_out'],
-            grads['output']['b_out']
-        ])
-
-        # Initialize optimizer state if needed
-        if not hasattr(self, '_adam_m'):
-            self._adam_m = tuple(jnp.zeros_like(p) for p in params_list)
-            self._adam_v = tuple(jnp.zeros_like(p) for p in params_list)
+        # Convert grads dict to tuple structure matching params_pytree
+        grads_pytree = (
+            grads['embeddings'],  # This is a dict {'embeddings': ..., 'positional_encodings': ...}
+            grads['stack'],        # This is a list of dicts
+            grads['output']        # This is a dict
+        )
 
         # Increment timestep
         self.optimizer.t += 1
 
-        # Run JIT-compiled update
-        params_tuple = tuple(params_list)
-        grads_tuple = tuple(grads_list)
+        # Run JIT-compiled update (all parameter updates happen in one JIT call)
         optimizer_state = (self._adam_m, self._adam_v)
 
         updated_params, new_state = self._compiled_update(
-            params_tuple, grads_tuple, optimizer_state, self.optimizer.t
+            params_pytree, grads_pytree, optimizer_state, self.optimizer.t
         )
 
+        # Update optimizer state
         self._adam_m, self._adam_v = new_state
 
         # Unpack updated parameters back to model
-        idx = 0
-        self.embedding_layer.embeddings = updated_params[idx]
-        idx += 1
-        self.embedding_layer.positional_encodings = updated_params[idx]
-        idx += 1
-
-        for block in self.transformer_stack.blocks:
-            block.attention_layer.W_Q = updated_params[idx]
-            idx += 1
-            block.attention_layer.W_K = updated_params[idx]
-            idx += 1
-            block.attention_layer.W_V = updated_params[idx]
-            idx += 1
-            block.attention_layer.W_O = updated_params[idx]
-            idx += 1
-            block.ffn.W1 = updated_params[idx]
-            idx += 1
-            block.ffn.B1 = updated_params[idx]
-            idx += 1
-            block.ffn.W2 = updated_params[idx]
-            idx += 1
-            block.ffn.B2 = updated_params[idx]
-            idx += 1
-            block.gamma_1 = updated_params[idx]
-            idx += 1
-            block.beta_1 = updated_params[idx]
-            idx += 1
-            block.gamma_2 = updated_params[idx]
-            idx += 1
-            block.beta_2 = updated_params[idx]
-            idx += 1
-
-        self.output_layer.W_out = updated_params[idx]
-        idx += 1
-        self.output_layer.b_out = updated_params[idx]
+        self._unflatten_params(updated_params)
         
 
     def _get_timestamped_checkpoint_path(self, base_path):
@@ -396,7 +389,7 @@ class Trainer:
 
                     # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
-                    batch_jax = jnp.array(batch)
+                    batch_jax = jnp.array(batch, dtype=jnp.int32)
                     # print(f"  Shape: {batch_jax.shape}")
 
                     # Create targets (shift by 1 position)
@@ -578,10 +571,14 @@ class Trainer:
             self._adam_m = checkpoint['adam_m']
             self._adam_v = checkpoint['adam_v']
             self.optimizer.t = checkpoint['optimizer_t']
-        # Legacy support for old checkpoint format
-        elif 'optimizer_state' in checkpoint:
-            self.optimizer.state = checkpoint['optimizer_state']
-            self.optimizer.t = checkpoint['optimizer_t']
+            print("Loaded optimizer state from checkpoint")
+        else:
+            # Old checkpoint format or no optimizer state - reinitialize
+            print("Warning: Old checkpoint format detected. Reinitializing optimizer state.")
+            params_pytree = self._flatten_params()
+            self._adam_m = tree.tree_map(lambda p: jnp.zeros_like(p), params_pytree)
+            self._adam_v = tree.tree_map(lambda p: jnp.zeros_like(p), params_pytree)
+            self.optimizer.t = 0
 
         print(f"Loaded checkpoint from {path}")
         if 'config' in checkpoint:
