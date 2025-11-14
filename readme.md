@@ -88,22 +88,11 @@ jaxlib==0.5.0
 
 Without GPU usage, JAX would be forced to run on CPU, which, although fast, is greatly overshadowed by a GPU's ability to compute mathematical relationships in parallel.
 
+## Data used in tokenizer and model
+The data that I have decided to use to train both this model and the tokenizer it uses comes from the HuggingFace database. It is the Dolly-15k dataset, since it offers 
 
-## Tokenization process
 
-To get tokenization training data as a `.txt` file, follow these steps:
-
-1. Visit the [Wikipedia English Language Dump](https://dumps.wikimedia.org/enwiki/)
-2. Click on [Latest](https://dumps.wikimedia.org/enwiki/latest/)
-3. Use **Cmd+F** to find the file at the following date and time: **292240103**
-4. Click on `"enwiki-latest-pages-articles-multistream1.xml-p..>"` to download the file
-5. Once in finder system, the file is in a `.bz2` format. Double click the file to expand it into a `.xml` file on MacOS (Windows might be different idrk).
-6. Add this to the folder **'tokenizer_training_data'**
-7. Create a file called **'all_wiki_text.txt'** inside that same folder
-8. Open `tokenizer_class.py`, comment all existing code inside the main loop and run the `extract_wiki_text` function there.
-9. Once text file has been fully written, comment the `extract_wiki_text` function and uncomment the main loop.
-
-### Tokenizer Details
+## Tokenizer Details
 - Implements **Byte Pair Encoding (BPE)** algorithm to compress all words into subword tokens.
 - Starts with a base vocab size of 256
 - Iteratively merges the most frequent adjacent byte pairs (letter or character pairs) until max vocab size is reached
