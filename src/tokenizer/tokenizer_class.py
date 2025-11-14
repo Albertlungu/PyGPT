@@ -221,7 +221,7 @@ class BPETokenizer:
     def export_to_json(self, path):
         pass
 
-def clean_alpaca_text(file_path):
+def clean_text(file_path):
     """
     Read Alpaca dataset and strip out 'Instruction:', 'Input:', and 'Output:' labels.
     Returns clean text with only the actual content.
@@ -238,6 +238,10 @@ def clean_alpaca_text(file_path):
                 line = line.replace("Input:", "").strip()
             elif line.startswith("Output:"):
                 line = line.replace("Output:", "").strip()
+            elif line.startswith("Final Output:"):
+                line = line.replace("Output:", "").strip()
+            elif line.startswith('Solution: '):
+                line = line.replace('Solution: ', "").strip()
 
             # Keep the line if it has content
             if line:
@@ -254,7 +258,7 @@ def main():
     # training_data = open("tokenizer_training_data/all_wiki_text.txt", "r").read()
 
     # Option 2: Alpaca data (cleaned)
-    training_data = clean_alpaca_text("tokenizer_training_data/alpaca_sample_utf8.txt")
+    training_data = clean_text("training_data/pygpt_training_corpus.txt")
     print("Read and cleaned training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
@@ -264,7 +268,7 @@ def main():
     # Variable declaration (params for tokenizer class)
     dataset_length = len(tokens) # TODO: When ready, change dataset length to len(tokens) for final tokenizer training
     # TODO: When ready, change vocab size to 32000 for final tokenizer training
-    vocab_size = 5000
+    vocab_size = 32000 # Higher vocab size ==> higher compression ratio
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
