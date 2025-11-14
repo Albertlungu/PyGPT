@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import sys
+import jax
+import jax.numpy as jnp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import time
 import pickle
@@ -22,11 +24,11 @@ def train():
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    max_lines = 10000
-    dataset = load_dataset("tatsu-lab/alpaca")
+    # max_lines = 10000
+    # dataset = load_dataset("tatsu-lab/alpaca")
 
-    train_data = dataset["train"]
-    train_data = train_data.select(range(max_lines))
+    # train_data = dataset["train"]
+    # train_data = train_data.select(range(max_lines))
     
     # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
     #     for ex in train_data:
@@ -34,7 +36,7 @@ def train():
     #         f.write(text + "\n")
 
     training_texts = []
-    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
+    with open("training_data/pygpt_training_corpus.txt", "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             training_texts.append(line.strip())
 
@@ -45,8 +47,8 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         user_input=training_texts,
-        lr=1e-3,
-        num_blocks=8,
+        lr=5e-4,
+        num_blocks=4,
         num_heads=4
     )
 
@@ -62,10 +64,10 @@ def train():
     # Train with automatic checkpointing
     # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=50,       # Reduced from 10 to 2 epochs
-        batch_size=64,  
-        checkpoint_path="artifacts/training_logs/jax_training_latest.pkl",
-        save_every=5    # Save every 2 epochs
+        epochs=10,       # Reduced from 10 to 2 epochs
+        batch_size=32,  
+        checkpoint_path="artifacts/training_logs/jax_32k_corpus.pkl",
+        save_every=1    # Save every 2 epochs
     )
 
     end_train = time.time() - train_time
@@ -88,7 +90,7 @@ def extend():
         tokenizer._ensure_vocab()
 
     training_texts = []
-    with open("tokenizer_training_data/alpaca_sample_utf8.txt", "r", encoding="utf-8") as f:
+    with open("training_data/pygpt_training_corpus.txt", "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             training_texts.append(line.strip())
 
@@ -96,18 +98,20 @@ def extend():
     trainer = Trainer(
         tokenizer,
         training_texts,
-        lr=5e-3,
-        num_blocks=8,  # Must match checkpoint!
+        lr=1e-3,  # Match the original training learning rate
+        num_blocks=4,  # Must match checkpoint!
         num_heads=4   # Must match checkpoint!
     )
 
     trainer.extend_training(
-        checkpoint_path="artifacts/training_logs/training_logs_46605loss.pkl",
+        checkpoint_path="artifacts/training_logs/jax_32k_corpus_2025-11-14_11-23-51.pkl",
         epochs=10,
         batch_size=32,
-        save_every=2
+        save_every=1
     )
 
+
+# @jax.jit(device=jax.devices("cpu")[0])
 def main():
     """Load a trained model and generate text."""
 
@@ -120,12 +124,12 @@ def main():
     trainer = Trainer(
         tokenizer,
         dummy_input,
-        lr=1e-4,
-        num_blocks=8,  # Must match checkpoint!
+        lr=1e-3,
+        num_blocks=4,  # Must match checkpoint!
         num_heads=4   # Must match checkpoint!
     )
 
-    checkpoint_path = "artifacts/training_logs/training_logs_46605loss.pkl"
+    checkpoint_path = "artifacts/training_logs/jax_32k_corpus_2025-11-14_11-23-51.pkl"
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -138,6 +142,7 @@ def main():
     # Test multiple prompts
     prompts = [
         "What is your name?",
+        "What is 5+5?",
         "Document the steps needed to deploy a machine learning model in an Android application.",
         "The capital of France is",
         "Rewrite the sentence 'The cat chased the mouse' in the past tense."
