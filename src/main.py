@@ -20,7 +20,7 @@ def train():
 
     print("This code is running.")
     # Load tokenizer
-    with open("artifacts/tokenizer.pkl", "rb") as f:
+    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -35,7 +35,7 @@ def train():
     #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
     #         f.write(text + "\n")
 
-    with open("artifacts/tokenized_training_data.pkl", "rb") as f:
+    with open("artifacts/tokenized_dolly_15k.pkl", "rb") as f:
         tokenized_data = pickle.load(f)
 
     print("="*60)
@@ -46,7 +46,7 @@ def train():
         tokenizer=tokenizer,
         pretokenized_data=tokenized_data,
         lr=5e-4,
-        num_blocks=4,
+        num_blocks=1,
         num_heads=4
     )
 
@@ -63,8 +63,8 @@ def train():
     # FAST TEST CONFIGURATION
     trainer.train(
         epochs=10,       # Reduced from 10 to 2 epochs
-        batch_size=32,  
-        checkpoint_path="artifacts/training_logs/jax_32k_corpus.pkl",
+        batch_size=4,  
+        checkpoint_path="artifacts/training_logs/jax_dolly_15k.pkl",
         save_every=1    # Save every 2 epochs
     )
 
@@ -83,7 +83,7 @@ def train():
 
 def extend():
 
-    with open("artifacts/tokenizer.pkl", "rb") as f:
+    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 

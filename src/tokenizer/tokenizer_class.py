@@ -346,7 +346,7 @@ def tokenize_training_data(path):
     Args:
         path (str): Path to the training data
     """
-    with open("artifacts/tokenizer.pkl", "rb") as f:
+    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
     
@@ -370,12 +370,12 @@ def tokenize_training_data(path):
                 tokenized_training_data.append(ids)
 
     
-    with open("artifacts/tokenized_training_data.pkl", "wb") as f:
+    with open("artifacts/tokenized_dolly_15k.pkl", "wb") as f:
         pickle.dump(tokenized_training_data, f)
 
 
 def test_tokenizer(path):
-    with open("artifacts/tokenizer.pkl", "rb") as f:
+    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -393,6 +393,6 @@ def test_tokenizer(path):
         print("text: ", decoded_text)
 
 if __name__ == "__main__":
-    main()
-    # tokenize_training_data("training_data/pygpt_training_corpus.txt")
+    # main()
+    tokenize_training_data("training_data/pygpt_training_corpus.txt")
     # test_tokenizer("artifacts/tokenized_training_data.pkl")
