@@ -27,6 +27,51 @@ def save_dolly(path):
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
+def save_general_knowledge(path):
+    """
+    Load the MuskumPillerum/General-Knowledge dataset from HuggingFace
+
+    Args:
+        path (str): Output file path for the formatted dataset
+    """
+    print("Loading dataset:")
+    dataset_len = 10000
+    ds = load_dataset("MuskumPillerum/General-Knowledge")
+    print(ds)
+    ds = ds['train']
+    ds = ds.select(range(dataset_len)) if dataset_len > 0 else ds
+    print(f"Loaded {dataset_len} examples")
+
+    with open(path, "w", encoding="utf-8") as f:
+        for idx, ex in enumerate(ds):
+            text = f"Instruction:\n{ex['Question']}\nResponse:\n{ex['Answer']}\n"
+            f.write(text + "\n")
+
+            if (idx + 1) % 1000 == 0:
+                print(f"Processed {idx + 1}/{len(ds)} examples")
+
+    print(f"Successfully saved {len(ds)} examples to {path}")
+
+def save_alpaca(path):
+    """
+    Load the Alpaca dataset from HuggingFace
+
+    Args:
+        path (str): Output file path for the formatted dataset
+    """
+    ds_len = 40000
+    ds = load_dataset("tatsu-lab/alpaca")
+    ds = ds['train']
+    ds = ds.select(range(ds_len)) if ds_len > 0 else ds
+    with open(path, "w", encoding="utf-8") as f:
+        for idx, ex in enumerate(ds):
+            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+            f.write(text + "\n")
+
+            if (idx + 1) % 1000 == 0:
+                    print(f"Processed {idx + 1}/{len(ds)} examples")
+
+    print(f"Successfully saved {len(ds)} examples to {path}")
 
 def load_text_file(path):
     """
@@ -47,4 +92,6 @@ def load_text_file(path):
 
 
 if __name__ == "__main__":
-    save_dolly("training_data/pygpt_training_corpus.txt")
+    # save_dolly("training_data/pygpt_training_corpus.txt")
+    save_general_knowledge("training_data/general_knowledge.txt")
+    # save_alpaca("training_data/alpaca.txt")
