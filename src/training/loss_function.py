@@ -22,13 +22,16 @@ class CrossEntropyLoss:
         self.grad_fn = jax.grad(self.fwd)
 
     @staticmethod
-    def fwd(logits, targets, reduction = 'mean', ignore_index = None):
+    def fwd(logits, targets, reduction = 'mean', ignore_index = None, ignore_indices = None):
         """
         Forward pass for the cross entropy loss function. Calculates the actual loss for each token.
 
         Args:
             logits (jnp.ndarray): Output of the OutputLayer class.
             targets (jnp.ndarray): The true "next-token" index that the model is supposed to predict. Shape: (batch, seq_len)
+            reduction (str): Type of reduction, 'sum' or 'mean'. Defaults to 'mean'.
+            ignore_index (int, optional): Single index to ignore. Defaults to None.
+            ignore_indices (list, optional): Multiple indices to ignore (e.g., [0, 20000] for padding and EOS). Defaults to None.
 
         Returns:
             jnp.float64: Loss of my model I guess
@@ -37,7 +40,7 @@ class CrossEntropyLoss:
             TypeError
         """
         batch_size, seq_len, vocab_size = logits.shape
-        
+
         log_probs = jax.nn.log_softmax(logits, axis=-1)
         targets = jnp.clip(targets, 0, vocab_size - 1)
 
@@ -45,8 +48,13 @@ class CrossEntropyLoss:
             log_probs, targets[..., None], axis=-1
         )[...,0]
 
-
-        if ignore_index is not None:
+        # Handle both single ignore_index and multiple ignore_indices
+        if ignore_indices is not None:
+            # Create mask that ignores multiple indices
+            mask = jnp.ones_like(targets, dtype=jnp.float16)
+            for idx in ignore_indices:
+                mask = mask * (targets != idx).astype(jnp.float16)
+        elif ignore_index is not None:
             mask = (targets != ignore_index).astype(jnp.float16)
         else:
             mask = jnp.ones_like(targets, dtype=jnp.float16)
@@ -57,7 +65,7 @@ class CrossEntropyLoss:
             loss = neg_log_prob.sum()/mask.sum()
         elif reduction == 'sum':
             loss = neg_log_prob.sum()
-        else: 
+        else:
             raise TypeError("Please enter either 'mean' or 'sum' as a reduction")
-        
+
         return loss

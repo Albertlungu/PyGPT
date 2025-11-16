@@ -20,7 +20,7 @@ def train():
 
     print("This code is running.")
     # Load tokenizer
-    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
+    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -35,8 +35,17 @@ def train():
     #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
     #         f.write(text + "\n")
 
-    with open("artifacts/tokenized_dolly_15k.pkl", "rb") as f:
-        tokenized_data = pickle.load(f)
+    print(jax.devices())
+    print(jax.default_backend())
+
+
+    # Load complete documents (separated by double newlines)
+    # This ensures related content stays together
+    with open("training_data/general_knowledge.txt", "r") as f:
+        content = f.read()
+
+    # Split by double newlines to get complete instruction-response pairs
+    training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
 
     print("="*60)
     print("Appended training texts to list")
@@ -44,10 +53,11 @@ def train():
 
     trainer = Trainer(
         tokenizer=tokenizer,
-        pretokenized_data=tokenized_data,
+        training_data=training_texts,
         lr=5e-4,
-        num_blocks=1,
-        num_heads=4
+        num_blocks=8,
+        num_heads=8,
+        max_seq_length=256  # Limit sequence length to avoid memory issues
     )
 
     # Print model architecture summary
@@ -63,8 +73,8 @@ def train():
     # FAST TEST CONFIGURATION
     trainer.train(
         epochs=10,       # Reduced from 10 to 2 epochs
-        batch_size=4,  
-        checkpoint_path="artifacts/training_logs/jax_dolly_15k.pkl",
+        batch_size=32,  
+        checkpoint_path="artifacts/training_logs/jax_gen_kn.pkl",
         save_every=1    # Save every 2 epochs
     )
 
@@ -83,37 +93,38 @@ def train():
 
 def extend():
 
-    with open("artifacts/tokenizer_dolly_15k.pkl", "rb") as f:
+    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    training_texts = []
-    with open("training_data/pygpt_training_corpus.txt", "r", encoding="utf-8") as f:
-        for i, line in enumerate(f):
-            training_texts.append(line.strip())
+    # Load complete documents (separated by double newlines)
+    with open("training_data/general_knowledge.txt", "r", encoding="utf-8") as f:
+        content = f.read()
+
+    training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
 
 
     trainer = Trainer(
         tokenizer,
         training_texts,
-        lr=1e-3,  # Match the original training learning rate
-        num_blocks=4,  # Must match checkpoint!
-        num_heads=4   # Must match checkpoint!
+        lr=5e-4,  # Match the original training learning rate
+        num_blocks=8,  # Must match checkpoint!
+        num_heads=8,   # Must match checkpoint!
+        max_seq_length=256
     )
 
     trainer.extend_training(
-        checkpoint_path="artifacts/training_logs/jax_32k_corpus_2025-11-14_11-23-51.pkl",
-        epochs=10,
+        checkpoint_path="artifacts/training_logs/jax_gen_kn_2025-11-15_20-02-17.pkl",
+        epochs=50,
         batch_size=32,
         save_every=1
     )
 
 
-# @jax.jit(device=jax.devices("cpu")[0])
 def main():
     """Load a trained model and generate text."""
 
-    with open("artifacts/tokenizer.pkl", "rb") as f:
+    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -122,12 +133,12 @@ def main():
     trainer = Trainer(
         tokenizer,
         dummy_input,
-        lr=1e-3,
-        num_blocks=4,  # Must match checkpoint!
-        num_heads=4   # Must match checkpoint!
+        lr=5e-4,
+        num_blocks=8,  # Must match checkpoint!
+        num_heads=8   # Must match checkpoint!
     )
 
-    checkpoint_path = "artifacts/training_logs/jax_32k_corpus_2025-11-14_11-23-51.pkl"
+    checkpoint_path = "artifacts/training_logs/jax_gk_12epochs.pkl"
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -139,11 +150,11 @@ def main():
 
     # Test multiple prompts
     prompts = [
-        "What is your name?",
-        "What is 5+5?",
-        "Document the steps needed to deploy a machine learning model in an Android application.",
-        "The capital of France is",
-        "Rewrite the sentence 'The cat chased the mouse' in the past tense."
+        "Design an algorithm to detect plagiarism in academic papers.",
+        "Prove that 2 squared is equal to 4.",
+        "Write a convincing argument in favor of using GPT models.",
+        "Who invented the first successful automobile?",
+        "Summarize how quantum computing works."
     ]
 
     for prompt in prompts:
@@ -153,10 +164,11 @@ def main():
 
         generated_text = trainer.generate(
             prompt,
-            max_length=50,
-            temperature=0.7,
-            top_k=40,
-            repetition_penalty=1.5
+            max_length=100,
+            temperature=1,
+            top_k=30,
+            repetition_penalty=1.5,
+            debug=False
         )
 
         print(f"Generated: '{generated_text[0]}'")

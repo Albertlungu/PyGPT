@@ -34,7 +34,7 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, user_input=None, pretokenized_data=None, lr=1e-4, num_blocks=4, num_heads=8):
+    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, max_seq_length=256):
         """
         Initialize Trainer with model architecture.
 
@@ -45,21 +45,35 @@ class Trainer:
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
             num_heads (int): Number of attention heads per block (default: 8)
+            max_seq_length (int): Maximum sequence length for chunking (default: 256)
         """
         self.tokenizer = tokenizer
+        self.max_seq_length = max_seq_length
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
             embedding_dim=256,
-            max_seq_length=256  # Increased to handle longer sequences
+            max_seq_length=max_seq_length
         )
 
-        self.pretokenized_data = pretokenized_data
-        if self.pretokenized_data is not None:
-            self.token_ids = self.pretokenized_data
-        elif user_input is not None:
-            self.token_ids = []
-            for text in user_input:
-                ids = tokenizer.encode(text)
+        self.token_ids = []
+
+        # Process training data with proper chunking
+        for text in training_data:
+            ids = tokenizer.encode(text)
+
+            # Chunk the sequence if it's too long
+            if len(ids) > max_seq_length - 1:  # -1 to leave room for EOS
+                # Split into chunks
+                for i in range(0, len(ids), max_seq_length - 1):
+                    chunk = ids[i:i + max_seq_length - 1]
+
+                    # Only add EOS to the LAST chunk of this document
+                    if i + max_seq_length - 1 >= len(ids):
+                        chunk.append(tokenizer.eos_token_id)
+
+                    self.token_ids.append(chunk)
+            else:
+                # Short sequence - just add EOS at the end
                 ids.append(tokenizer.eos_token_id)
                 self.token_ids.append(ids)
 
@@ -120,7 +134,9 @@ class Trainer:
                     )
 
                 logits = OutputLayer.fwd(output_params, current)
-                loss = CrossEntropyLoss.fwd(logits, targets, ignore_index=self.tokenizer.eos_token_id)
+                # Ignore both padding (0) and EOS tokens (20000) during loss calculation
+                # This prevents the model from learning to predict EOS prematurely
+                loss = CrossEntropyLoss.fwd(logits, targets, ignore_indices=[0, 20000])
                 return loss
 
             loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2))(
@@ -395,6 +411,8 @@ class Trainer:
                     # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
                     batch_jax = jnp.array(batch, dtype=jnp.int32)
+                    # print(batch_jax)
+                    # print(f"    Batch #{batch_idx}")
                     # print(f"  Shape: {batch_jax.shape}")
 
                     # Create targets (shift by 1 position)
@@ -589,7 +607,7 @@ class Trainer:
         if 'config' in checkpoint:
             print(f"Config: {checkpoint['config']}")
 
-    def generate(self, prompt, max_length=50, temperature=0.7, top_k=40, repetition_penalty=1.2):
+    def generate(self, prompt, max_length=50, temperature=0.7, top_k=40, repetition_penalty=1.2, debug=False):
         """
         Generate text using the trained model (JAX-based).
 
@@ -599,6 +617,7 @@ class Trainer:
             temperature (float): Sampling temperature
             top_k (int): Top-k filtering
             repetition_penalty (float): Penalty for repeating tokens
+            debug (bool): Print debug information
 
         Returns:
             str: Generated text (excluding the prompt)
@@ -607,15 +626,21 @@ class Trainer:
         token_ids = [min(tid, self.tokenizer.vocab_size - 1) for tid in token_ids]
         prompt_length = len(token_ids)  # Track original prompt length
 
+        if debug:
+            print(f"\nDEBUG: Encoded prompt: {token_ids}")
+            print(f"DEBUG: Prompt length: {prompt_length}")
+            print(f"DEBUG: Vocab size: {self.tokenizer.vocab_size}")
+            print(f"DEBUG: EOS token ID: {self.tokenizer.eos_token_id}")
+
         for _ in range(max_length):
             # Convert to JAX array
-            batch_token_ids = jnp.array([token_ids])
+            batch_token_ids = jnp.array([token_ids], dtype=jnp.float16)
 
             # Forward pass
             transformer_out, logits = self.fwd(batch_token_ids)
 
             # Get logits for last token
-            next_logits = jnp.array(logits[0, -1]) / temperature
+            next_logits = jnp.array(logits[0, -1], dtype=jnp.float16) / temperature
 
             # CRITICAL: Mask out invalid tokens (beyond vocab_size)
             # This ensures we NEVER sample invalid token IDs
@@ -648,8 +673,7 @@ class Trainer:
             probs = jax.nn.softmax(next_logits)
             probs = jnp.array(probs).flatten()
 
-            # Convert to numpy for random choice (JAX doesn't have this)
-            probs_np = np.array(probs)
+            probs_np = np.array(probs, dtype=np.float16)
 
             # Normalize to ensure valid probability distribution
             probs_np = probs_np / probs_np.sum()
@@ -657,12 +681,18 @@ class Trainer:
             next_token = np.random.choice(len(probs_np), p=probs_np)
             next_token = int(next_token)
 
-            # This should never trigger now, but keep as final safety
             if next_token >= vocab_size:
                 next_token = vocab_size - 1
 
+            if debug:
+                print(f"DEBUG: Generated token {len(token_ids) - prompt_length + 1}: {next_token} (prob: {probs_np[next_token]:.4f})")
+                top_5_indices = np.argsort(probs_np)[-5:][::-1]
+                print(f"DEBUG: Top 5 tokens: {[(i, probs_np[i]) for i in top_5_indices]}")
+
             # Check for EOS BEFORE appending to avoid including it in output
             if next_token == self.tokenizer.eos_token_id:
+                if debug:
+                    print(f"DEBUG: Hit EOS token at position {len(token_ids) - prompt_length}")
                 break
 
             token_ids.append(next_token)
@@ -670,7 +700,7 @@ class Trainer:
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
         try:
-            return self.tokenizer.decode(generated_token_ids), next_token, self.output_layer.b_out
+            return self.tokenizer.decode(generated_token_ids), generated_token_ids
         except (UnicodeDecodeError, Exception) as e:
             print(f"Warning: Decoding error: {e}")
             print(f"Generated token IDs: {generated_token_ids[:20]}...")
@@ -683,7 +713,7 @@ class Trainer:
             batch = self.token_ids[i:i+batch_size]
             max_len = max(len(seq) for seq in batch)
             padded_batches = [
-                seq + [self.tokenizer.eos_token_id] * (max_len - len(seq))
+                seq + [0] * (max_len - len(seq))
                 for seq in batch
             ]
             batches.append(np.array(padded_batches))
