@@ -249,6 +249,34 @@ embedded = embeddings[token_ids]
 - > For example, if I had a sequence saying "I like to eat food", and another that said, "But I should really look into slimming down", and a third saying "But I love food too much, I cannot commit such a crime", assume the third string to have `seq_len=256`, the second string to have `seq_len=232` (just a random number, it doesn't matter), and the first string is of `seq_len=167` (again, random number). My model likes it when these sequences are all the same length, so that it doesn't put more weight and emphasis onto the longer one. So, what you do, is you add a bunch of padding ids to the shorter ones (assume `max_seq_len=256`) to make them 256 numbers.
 - Finally, we move on to the "End of Sequence" id (EOS for short). This, unlike the padding id, should not be ignored by my model. The EOS token, while masked as to not affect weights and actual output, tells my model that the sequence is over, so it knows when a line ends, or when a sentence ends. The EOS token is usually set to the vocab size
   *- This is applied later in the transformer*
+>> To see details on positional encoding, see `concepts/positional_encoding.md`
+
+## Transformer
+This project is based on a multi-head attention transformer architecture.
+### What is the transformer architecture?
+A transformer-based model is made up of either an encoder or decoder, or both. This model is based on the decoder architecture, mimicking ChatGPT. In the following graph, the encoder architecture is on the left, and the decoding architecture is on the right. 
+
+<img src = 'concepts/assets/image.png' width = '600'></img>
+
+This description will be focusing on the decoder architecture, since that is what is used in this model.
+
+---
+#### Is Attention all You Need?
+Using the famous paper from Google Mind, [Attention Is All You Need](https://arxiv.org/pdf/1706.03762), I have created an attention model in the ways which are described in this documentation.
+
+This mode, as it currently stands, has architecture implemented for both single head and multi head attention. These can be explored in the files `src/transformer/single_head_attention.py` and `src/transformer/multi_head_attention.py` respectively. The single head attention is a remnant from the branch using NumPy, and does not use JAX or GPU-based processing. 
+
+Multi head attention, in the way I implemented it here, uses a set of four learnable parameters called **weights**. These include:
+```python
+self.W_Q = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+self.W_K = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+self.W_V = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
+```
+- `W_Q` represents **query weights**, which turns the user input into a "query" vector that represents what the current token wants to find. i.e., understands what the user is asking through learnable weights.
+- `W_K` represents **key weights**, which represent the information that every token offers. They pull and transform the meaning from embeddings into a vector quantity.
+  - You may be asking yourself *Wait, aren't embeddings already vectors? If so, then why do I need to transform them further into something the computer can understand?*
+  - Well, they are transformed because, in multi-head attention, each head deals with a different part of the token's meaning, while the full embedding represents **everything** about the token itself.
 
 
 ## How PyGPT Works
