@@ -25,7 +25,7 @@ class MultiHeadAttention:
           W_O (jnp.ndarray): Output projection matrix, shape (embedding_dim, embedding_dim)
 
       """
-    def __init__(self, embedding_layer: EmbeddingLayer, num_heads = 8):
+    def __init__(self, embedding_layer: EmbeddingLayer, num_heads=8):
         """
         Initializing MutliHeadAttention
 
@@ -41,10 +41,11 @@ class MultiHeadAttention:
         key = jax.random.PRNGKey(0)
         k1, k2, k3, k4 = jax.random.split(key, 4)
 
-        self.W_Q = jax.random.normal(k1, (self.embedding_dim, self.embedding_dim)) * 0.01
-        self.W_K = jax.random.normal(k2, (self.embedding_dim, self.embedding_dim)) * 0.01
-        self.W_V = jax.random.normal(k3, (self.embedding_dim, self.embedding_dim)) * 0.01
-        self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * 0.01
+        scale = jnp.sqrt(1.0 / self.embedding_dim)
+        self.W_Q = jax.random.normal(k1, (self.embedding_dim, self.embedding_dim)) * scale
+        self.W_K = jax.random.normal(k2, (self.embedding_dim, self.embedding_dim)) * scale
+        self.W_V = jax.random.normal(k3, (self.embedding_dim, self.embedding_dim)) * scale
+        self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * scale
 
     @staticmethod
     def fwd(params, x, num_heads, head_dim, embedding_dim):
