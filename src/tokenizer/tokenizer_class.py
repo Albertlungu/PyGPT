@@ -401,7 +401,7 @@ def main():
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
-    training_data = clean_text("training_data/general_knowledge.txt")
+    training_data = clean_text("training_data/alpaca.txt")
     print("Read and cleaned training data")
 
     tokens = training_data.encode("utf-8") # turns raw text (strings) into utf-8 encoded bytes stored inside tokens variable
@@ -410,7 +410,7 @@ def main():
 
     # Variable declaration (params for tokenizer class)
     dataset_length = len(tokens)
-    vocab_size = 20000
+    vocab_size = 32000
     print("Set dataset length and vocab size")
 
     tokenizer = BPETokenizer(vocab_size) # instancing the tokenizer class with tokens as the training data
@@ -424,7 +424,7 @@ def main():
     print("Final ids length:", len(ids))
     print(f"Compression ratio: {len(tokens[:dataset_length]) / len(ids):.2f}X")
 
-    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "wb") as f:
+    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "wb") as f:
         pickle.dump(tokenizer, f) # turning the tokenizer object into a pickle file
 
     # with open('artifacts/tokenizer.pkl', 'rb') as f:
@@ -518,6 +518,6 @@ def test_tokenizer(path):
     #     print("text: ", decoded_text)
 
 if __name__ == "__main__":
-    # main()
+    main()
     # tokenize_training_data("training_data/pygpt_training_corpus.txt")
-    test_tokenizer("artifacts/tokenized_training_data.pkl")
+    # test_tokenizer("artifacts/tokenized_training_data.pkl")
