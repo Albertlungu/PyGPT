@@ -414,6 +414,19 @@ class Trainer:
         batches = self.create_batches(batch_size)
         # print(f"Created {len(batches)} batches")
 
+        # Configure learning rate schedule if enabled
+        if self.use_lr_schedule:
+            total_steps = epochs * len(batches)
+            self.optimizer.warmup_steps = self.warmup_steps
+            self.optimizer.total_steps = total_steps
+            self.optimizer.schedule = 'warmup_cosine'
+            print(f"Learning rate schedule enabled:")
+            print(f"  - Warmup steps: {self.warmup_steps}")
+            print(f"  - Total steps: {total_steps}")
+            print(f"  - Base LR: {self.lr}")
+        else:
+            print(f"Using constant learning rate: {self.lr}")
+
         gc.disable()
 
         try:
@@ -423,6 +436,11 @@ class Trainer:
 
                 for batch_idx, batch in enumerate(tqdm(batches, desc=f"Epoch {epoch+1}/{epochs}", leave=False, file=sys.stderr)):
                     start_time = t.time()
+
+                    # Update learning rate based on schedule
+                    if self.use_lr_schedule:
+                        current_lr = self.optimizer.get_lr()
+                        self.optimizer.lr = current_lr
 
                     # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
@@ -450,7 +468,8 @@ class Trainer:
                     # print(f"  Batch complete in {batch_time:.2f}s")
 
                 avg_loss = total_loss / len(batches)
-                print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}")
+                current_lr = self.optimizer.lr if not self.use_lr_schedule else self.optimizer.get_lr()
+                print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}, LR: {current_lr:.6f}")
 
                 # Save checkpoint with timestamp
                 if (epoch + 1) % save_every == 0:
