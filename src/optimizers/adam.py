@@ -1,15 +1,34 @@
 import jax
 import jax.numpy as jnp
 from typing import Any, Dict, List, Tuple, Union
+import numpy as np
 
 class AdamNested:
-    def __init__(self, lr=1e-4, beta1=0.9, beta2=0.999, epsilon=1e-8):
+    def __init__(self, lr=1e-4, beta1=0.9, beta2=0.999, epsilon=1e-8, warmup_steps=0, total_steps=None, schedule='constant'):
+        """
+        Adam optimizer with optional learning rate scheduling.
+
+        Args:
+            lr: Base learning rate
+            beta1: First moment decay rate
+            beta2: Second moment decay rate
+            epsilon: Small constant for numerical stability
+            warmup_steps: Number of steps for linear warmup (default: 0, no warmup)
+            total_steps: Total training steps for cosine decay (default: None, no decay)
+            schedule: 'constant', 'warmup', or 'warmup_cosine' (default: 'constant')
+        """
+        self.base_lr = lr
         self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
         self.t = 0
         self.state = {}
+
+        # Learning rate schedule parameters
+        self.warmup_steps = warmup_steps
+        self.total_steps = total_steps
+        self.schedule = schedule
 
         # Create JIT-compiled Adam step function
         self._jit_adam_step = jax.jit(self._adam_step_fn)
@@ -33,6 +52,38 @@ class AdamNested:
         updated_params = params - lr * m_hat / (jnp.sqrt(v_hat) + epsilon)
 
         return updated_params, m_new, v_new
+
+    def get_lr(self):
+        """Get current learning rate based on schedule and timestep."""
+        if self.schedule == 'constant':
+            return self.base_lr
+
+        step = self.t
+
+        if self.schedule == 'warmup':
+            # Linear warmup only
+            if step < self.warmup_steps:
+                return self.base_lr * (step / self.warmup_steps)
+            else:
+                return self.base_lr
+
+        elif self.schedule == 'warmup_cosine':
+            # Linear warmup + cosine decay
+            if step < self.warmup_steps:
+                # Linear warmup
+                return self.base_lr * (step / self.warmup_steps)
+            else:
+                # Cosine decay after warmup
+                if self.total_steps is None:
+                    return self.base_lr
+
+                progress = (step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
+                progress = min(progress, 1.0)  # Clamp to [0, 1]
+
+                # Cosine annealing: starts at base_lr, ends at 0
+                return self.base_lr * 0.5 * (1.0 + np.cos(np.pi * progress))
+
+        return self.base_lr
 
     def _get_state_key(self, path):
         return str(path)
