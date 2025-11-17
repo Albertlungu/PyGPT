@@ -22,7 +22,7 @@ class CrossEntropyLoss:
         self.grad_fn = jax.grad(self.fwd)
 
     @staticmethod
-    def fwd(logits, targets, reduction = 'mean', ignore_index = None, ignore_indices = None):
+    def fwd(logits, targets, reduction = 'mean', ignore_index = None, ignore_indices = None, eos_weight = None, eos_token_id = None):
         """
         Forward pass for the cross entropy loss function. Calculates the actual loss for each token.
 
@@ -32,6 +32,8 @@ class CrossEntropyLoss:
             reduction (str): Type of reduction, 'sum' or 'mean'. Defaults to 'mean'.
             ignore_index (int, optional): Single index to ignore. Defaults to None.
             ignore_indices (list, optional): Multiple indices to ignore (e.g., [0, 20000] for padding and EOS). Defaults to None.
+            eos_weight (float, optional): Weight for EOS token loss (e.g., 0.1 to downweight). Defaults to None (weight of 1.0).
+            eos_token_id (int, optional): EOS token ID to apply weight to. Required if eos_weight is specified.
 
         Returns:
             jnp.float64: Loss of my model I guess
@@ -58,6 +60,12 @@ class CrossEntropyLoss:
             mask = (targets != ignore_index).astype(jnp.float16)
         else:
             mask = jnp.ones_like(targets, dtype=jnp.float16)
+
+        # Apply EOS weighting if specified
+        if eos_weight is not None and eos_token_id is not None:
+            # Create EOS mask: 1.0 for non-EOS, eos_weight for EOS tokens
+            eos_mask = jnp.where(targets == eos_token_id, eos_weight, 1.0).astype(jnp.float16)
+            mask = mask * eos_mask
 
         neg_log_prob = -selected_log_probs * mask
 

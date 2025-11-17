@@ -34,7 +34,7 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, max_seq_length=256):
+    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256):
         """
         Initialize Trainer with model architecture.
 
@@ -45,13 +45,20 @@ class Trainer:
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
             num_heads (int): Number of attention heads per block (default: 8)
+            embedding_dim (int): Embedding dimension (default: 256, must be divisible by num_heads)
             max_seq_length (int): Maximum sequence length for chunking (default: 256)
         """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
+        self.embedding_dim = embedding_dim
+
+        # Validate that embedding_dim is divisible by num_heads
+        if embedding_dim % num_heads != 0:
+            raise ValueError(f"embedding_dim ({embedding_dim}) must be divisible by num_heads ({num_heads})")
+
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
-            embedding_dim=256,
+            embedding_dim=embedding_dim,
             max_seq_length=max_seq_length
         )
 
@@ -134,9 +141,15 @@ class Trainer:
                     )
 
                 logits = OutputLayer.fwd(output_params, current)
-                # Ignore both padding (0) and EOS tokens (20000) during loss calculation
-                # This prevents the model from learning to predict EOS prematurely
-                loss = CrossEntropyLoss.fwd(logits, targets, ignore_indices=[0, 20000])
+                # Ignore padding (0) during loss calculation
+                # Downweight EOS token to prevent premature stopping (0.1 = 10% of normal loss)
+                loss = CrossEntropyLoss.fwd(
+                    logits,
+                    targets,
+                    ignore_indices=[self.tokenizer.padding_token_id],
+                    eos_weight=0.1,  # Reduce EOS importance to prevent early stopping
+                    eos_token_id=self.tokenizer.eos_token_id
+                )
                 return loss
 
             loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2))(
@@ -536,7 +549,7 @@ class Trainer:
         print("="*60)
 
     def save_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
-        """Save model parameters to file."""
+        """Save model parameters AND optimizer state to file (for resuming training)."""
         checkpoint = {
             'embeddings': self.embedding_layer.embeddings,
             'positional_encodings': self.embedding_layer.positional_encodings,
@@ -560,10 +573,75 @@ class Trainer:
         with open(path, "wb") as f:
             pickle.dump(checkpoint, f)
 
+    def save_model_only(self, path="artifacts/models/model.pkl"):
+        """Save ONLY model weights (smaller file, for inference only)."""
+        model_state = {
+            'embeddings': self.embedding_layer.embeddings,
+            'positional_encodings': self.embedding_layer.positional_encodings,
+            'stack': [block.get_params() for block in self.transformer_stack.blocks],
+            'output': self.output_layer.get_params(),
+            'config': {
+                'num_blocks': self.num_blocks,
+                'num_heads': self.num_heads,
+                'vocab_size': self.tokenizer.vocab_size,
+                'embedding_dim': self.embedding_layer.embedding_dim
+            }
+        }
+
+        with open(path, "wb") as f:
+            pickle.dump(model_state, f)
+
+        print(f"Model saved to {path} (weights only, no optimizer state)")
+
+    def save_model_npz(self, path="artifacts/models/model.npz"):
+        """Save model weights as compressed NumPy arrays (smallest file size)."""
+        import numpy as np
+
+        # Collect all parameters as numpy arrays
+        save_dict = {
+            'embeddings': np.array(self.embedding_layer.embeddings),
+            'positional_encodings': np.array(self.embedding_layer.positional_encodings),
+            'output_W': np.array(self.output_layer.W_out),
+            'output_b': np.array(self.output_layer.b_out),
+        }
+
+        # Add transformer blocks
+        for i, block in enumerate(self.transformer_stack.blocks):
+            params = block.get_params()
+            save_dict[f'block_{i}_W_Q'] = np.array(params['attn']['W_Q'])
+            save_dict[f'block_{i}_W_K'] = np.array(params['attn']['W_K'])
+            save_dict[f'block_{i}_W_V'] = np.array(params['attn']['W_V'])
+            save_dict[f'block_{i}_W_O'] = np.array(params['attn']['W_O'])
+            save_dict[f'block_{i}_W1'] = np.array(params['ffn']['W1'])
+            save_dict[f'block_{i}_B1'] = np.array(params['ffn']['B1'])
+            save_dict[f'block_{i}_W2'] = np.array(params['ffn']['W2'])
+            save_dict[f'block_{i}_B2'] = np.array(params['ffn']['B2'])
+            save_dict[f'block_{i}_gamma_1'] = np.array(params['gamma_1'])
+            save_dict[f'block_{i}_beta_1'] = np.array(params['beta_1'])
+            save_dict[f'block_{i}_gamma_2'] = np.array(params['gamma_2'])
+            save_dict[f'block_{i}_beta_2'] = np.array(params['beta_2'])
+
+        # Save config as metadata
+        config = {
+            'num_blocks': self.num_blocks,
+            'num_heads': self.num_heads,
+            'vocab_size': self.tokenizer.vocab_size,
+            'embedding_dim': self.embedding_layer.embedding_dim
+        }
+
+        # Save with compression
+        np.savez_compressed(path, **save_dict, config=config)
+        print(f"Model saved to {path} (compressed NPZ format)")
+
     def load_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
         """Load model parameters from file."""
+        print(f"Loading checkpoint from {path}...")
+        print("This may take 1-2 minutes for large files...")
+
         with open(path, "rb") as f:
             checkpoint = pickle.load(f)
+
+        print("Checkpoint loaded! Restoring model parameters...")
 
         self.embedding_layer.embeddings = checkpoint['embeddings']
         self.embedding_layer.positional_encodings = checkpoint['positional_encodings']
@@ -603,9 +681,10 @@ class Trainer:
             self._adam_v = tree.tree_map(lambda p: jnp.zeros_like(p), params_pytree)
             self.optimizer.t = 0
 
-        print(f"Loaded checkpoint from {path}")
+        print(f"Model parameters restored successfully!")
         if 'config' in checkpoint:
             print(f"Config: {checkpoint['config']}")
+        print("Ready for inference!")
 
     def generate(self, prompt, max_length=50, temperature=0.7, top_k=40, repetition_penalty=1.2, debug=False):
         """
@@ -632,70 +711,87 @@ class Trainer:
             print(f"DEBUG: Vocab size: {self.tokenizer.vocab_size}")
             print(f"DEBUG: EOS token ID: {self.tokenizer.eos_token_id}")
 
-        for _ in range(max_length):
-            # Convert to JAX array
-            batch_token_ids = jnp.array([token_ids], dtype=jnp.float16)
+        # Extract parameters once to avoid repeated dictionary lookups
+        embed_params = self.embedding_layer.get_params()
+        stack_params = [block.get_params() for block in self.transformer_stack.blocks]
+        output_params = self.output_layer.get_params()
 
-            # Forward pass
-            transformer_out, logits = self.fwd(batch_token_ids)
+        # Force all operations to run on GPU if available
+        with jax.default_device(jax.devices()[0]):
+            for step_idx in range(max_length):
+                # Convert to JAX array (JAX will automatically use GPU if available)
+                batch_token_ids = jnp.array([token_ids], dtype=jnp.int32)
 
-            # Get logits for last token
-            next_logits = jnp.array(logits[0, -1], dtype=jnp.float16) / temperature
+                # Forward pass
+                transformer_out, logits = self.fwd(batch_token_ids)
 
-            # CRITICAL: Mask out invalid tokens (beyond vocab_size)
-            # This ensures we NEVER sample invalid token IDs
-            vocab_size = self.tokenizer.vocab_size
-            if len(next_logits) > vocab_size:
-                # Set logits for invalid tokens to -inf (probability = 0)
-                next_logits = next_logits.at[vocab_size:].set(-jnp.inf)
+                # Get logits for last token (keep as float32 for numerical stability)
+                next_logits = logits[0, -1] / temperature
 
-            # Repetition penalty
-            if repetition_penalty != 1.0:
-                for token_id in set(token_ids):
-                    if token_id < vocab_size:
-                        if next_logits[token_id] > 0:
-                            next_logits = next_logits.at[token_id].set(
-                                next_logits[token_id] / repetition_penalty
-                            )
-                        else:
-                            next_logits = next_logits.at[token_id].set(
-                                next_logits[token_id] * repetition_penalty
-                            )
+                # CRITICAL: Mask out invalid tokens (beyond vocab_size)
+                # This ensures we NEVER sample invalid token IDs
+                vocab_size = self.tokenizer.vocab_size
 
-            # Top-k filtering
-            if top_k is not None:
-                top_k_indices = jnp.argsort(next_logits)[-top_k:]
-                mask = jnp.ones_like(next_logits) * -jnp.inf
-                mask = mask.at[top_k_indices].set(next_logits[top_k_indices])
-                next_logits = mask
+                if step_idx == 0 and debug:  # First token only
+                    print(f"\nDEBUG First Generation Step:")
+                    print(f"  Logits shape: {next_logits.shape}")
+                    print(f"  Vocab size: {vocab_size}")
+                    print(f"  Top 10 logit values: {jnp.sort(next_logits)[-10:]}")
+                    print(f"  Top 10 token indices: {jnp.argsort(next_logits)[-10:]}")
+                if len(next_logits) > vocab_size:
+                    # Set logits for invalid tokens to -inf (probability = 0)
+                    next_logits = next_logits.at[vocab_size:].set(-jnp.inf)
 
-            # Sample
-            probs = jax.nn.softmax(next_logits)
-            probs = jnp.array(probs).flatten()
+                # Repetition penalty (optimized - vectorized operation)
+                if repetition_penalty != 1.0:
+                    unique_tokens = jnp.array(list(set(token_ids)), dtype=jnp.int32)
+                    # Filter out tokens >= vocab_size
+                    unique_tokens = unique_tokens[unique_tokens < vocab_size]
 
-            probs_np = np.array(probs, dtype=np.float16)
+                    # Apply penalty in a vectorized way
+                    penalty_mask = jnp.zeros(vocab_size, dtype=jnp.bool_)
+                    penalty_mask = penalty_mask.at[unique_tokens].set(True)
 
-            # Normalize to ensure valid probability distribution
-            probs_np = probs_np / probs_np.sum()
+                    # Vectorized penalty application
+                    penalties = jnp.where(
+                        penalty_mask,
+                        jnp.where(next_logits > 0, 1.0 / repetition_penalty, repetition_penalty),
+                        1.0
+                    )
+                    next_logits = next_logits * penalties
 
-            next_token = np.random.choice(len(probs_np), p=probs_np)
-            next_token = int(next_token)
+                # Top-k filtering
+                if top_k is not None:
+                    top_k_indices = jnp.argsort(next_logits)[-top_k:]
+                    mask = jnp.ones_like(next_logits) * -jnp.inf
+                    mask = mask.at[top_k_indices].set(next_logits[top_k_indices])
+                    next_logits = mask
 
-            if next_token >= vocab_size:
-                next_token = vocab_size - 1
+                # Sample (optimized - keep in float32 for stability)
+                probs = jax.nn.softmax(next_logits)
+                probs_np = np.array(probs, dtype=np.float32)
 
-            if debug:
-                print(f"DEBUG: Generated token {len(token_ids) - prompt_length + 1}: {next_token} (prob: {probs_np[next_token]:.4f})")
-                top_5_indices = np.argsort(probs_np)[-5:][::-1]
-                print(f"DEBUG: Top 5 tokens: {[(i, probs_np[i]) for i in top_5_indices]}")
+                # Normalize to ensure valid probability distribution
+                probs_np = probs_np / probs_np.sum()
 
-            # Check for EOS BEFORE appending to avoid including it in output
-            if next_token == self.tokenizer.eos_token_id:
+                next_token = np.random.choice(len(probs_np), p=probs_np)
+                next_token = int(next_token)
+
+                if next_token >= vocab_size:
+                    next_token = vocab_size - 1
+
                 if debug:
-                    print(f"DEBUG: Hit EOS token at position {len(token_ids) - prompt_length}")
-                break
+                    print(f"DEBUG: Generated token {len(token_ids) - prompt_length + 1}: {next_token} (prob: {probs_np[next_token]:.4f})")
+                    top_5_indices = np.argsort(probs_np)[-5:][::-1]
+                    print(f"DEBUG: Top 5 tokens: {[(i, probs_np[i]) for i in top_5_indices]}")
 
-            token_ids.append(next_token)
+                # Check for EOS BEFORE appending to avoid including it in output
+                if next_token == self.tokenizer.eos_token_id:
+                    if debug:
+                        print(f"DEBUG: Hit EOS token at position {len(token_ids) - prompt_length}")
+                    break
+
+                token_ids.append(next_token)
 
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
