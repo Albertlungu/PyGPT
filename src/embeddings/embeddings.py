@@ -83,7 +83,7 @@ class EmbeddingLayer:
 
         # Matrix multiply to get embeddings: (batch, seq, vocab) @ (vocab, embed_dim) = (batch, seq, embed_dim)
         token_embeddings = jnp.einsum('bsv,ve->bse', token_ids_one_hot, embeddings)
-        token_embeddings = token_embeddings * jnp.sqrt(embeddings.shape[1])
+        token_embeddings = token_embeddings
 
         seq_len = padded_token_ids.shape[1]
 
