@@ -34,7 +34,7 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256):
+    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
         """
         Initialize Trainer with model architecture.
 
@@ -47,10 +47,14 @@ class Trainer:
             num_heads (int): Number of attention heads per block (default: 8)
             embedding_dim (int): Embedding dimension (default: 256, must be divisible by num_heads)
             max_seq_length (int): Maximum sequence length for chunking (default: 256)
+            use_lr_schedule (bool): Whether to use learning rate warmup and cosine decay (default: True)
+            warmup_steps (int): Number of warmup steps (default: 500)
         """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.embedding_dim = embedding_dim
+        self.use_lr_schedule = use_lr_schedule
+        self.warmup_steps = warmup_steps
 
         # Validate that embedding_dim is divisible by num_heads
         if embedding_dim % num_heads != 0:
@@ -98,7 +102,7 @@ class Trainer:
 
         self.lr = lr
 
-        # Initialize Adam optimizer
+        # Initialize Adam optimizer (schedule will be set in train() when we know total steps)
         self.optimizer = AdamNested(lr=lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
 
         # Create JIT-compiled loss and gradient function
@@ -142,12 +146,11 @@ class Trainer:
 
                 logits = OutputLayer.fwd(output_params, current)
                 # Ignore padding (0) during loss calculation
-                # Downweight EOS token to prevent premature stopping (0.1 = 10% of normal loss)
                 loss = CrossEntropyLoss.fwd(
                     logits,
                     targets,
                     ignore_indices=[self.tokenizer.padding_token_id],
-                    eos_weight=0.1,  # Reduce EOS importance to prevent early stopping
+                    eos_weight=1,  # Reduce EOS importance to prevent early stopping
                     eos_token_id=self.tokenizer.eos_token_id
                 )
                 return loss
