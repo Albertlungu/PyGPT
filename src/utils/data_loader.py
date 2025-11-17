@@ -59,7 +59,7 @@ def save_alpaca(path):
     Args:
         path (str): Output file path for the formatted dataset
     """
-    ds_len = 40000
+    ds_len = 0
     ds = load_dataset("tatsu-lab/alpaca")
     ds = ds['train']
     ds = ds.select(range(ds_len)) if ds_len > 0 else ds
@@ -72,6 +72,33 @@ def save_alpaca(path):
                     print(f"Processed {idx + 1}/{len(ds)} examples")
 
     print(f"Successfully saved {len(ds)} examples to {path}")
+
+def save_trivia_qa(path):
+    ds_len = 20000
+    ds = load_dataset("mandarjoshi/trivia_qa", "rc")
+    ds = ds['train']
+    ds = ds.select(range(ds_len)) if ds_len > 0 else ds
+
+    with open(path, "w", encoding="utf-8") as f:
+        for idx, ex in enumerate(ds):
+            # Check if 'answer' is a dict with 'value' and 'aliases'
+            answer_info = ex['answer']
+            if isinstance(answer_info, dict):
+                main_answer = answer_info.get('value', '')
+                aliases = answer_info.get('aliases', [])
+                aliases_str = ', '.join(aliases) if aliases else 'N/A'
+            else:
+                main_answer = answer_info
+                aliases_str = 'N/A'
+
+            text = f"Question:\n{ex['question']}\nAnswer:\n{main_answer}\nAliases:\n{aliases_str}\n"
+            f.write(text + "\n")
+
+            if (idx + 1) % 1000 == 0:
+                print(f"Processed {idx + 1}/{len(ds)} examples")
+
+    print(f"Successfully saved {len(ds)} examples to {path}")
+
 
 def load_text_file(path):
     """
@@ -93,5 +120,6 @@ def load_text_file(path):
 
 if __name__ == "__main__":
     # save_dolly("training_data/pygpt_training_corpus.txt")
-    save_general_knowledge("training_data/general_knowledge.txt")
-    # save_alpaca("training_data/alpaca.txt")
+    # save_general_knowledge("training_data/general_knowledge.txt")
+    save_alpaca("training_data/alpaca.txt")
+    # save_trivia_qa("training_data/trivia.txt")

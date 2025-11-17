@@ -1,8 +1,12 @@
 import os
-import numpy as np
+# import numpy as np
 import sys
-import jax
-import jax.numpy as jnp
+
+# Configure JAX to use CPU only (important for Mac/local inference)
+# os.environ['JAX_PLATFORMS'] = 'cpu'  # CRITICAL: Avoid slow Metal backend
+
+# import jax
+# import jax.numpy as jnp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import time
 import pickle
@@ -20,7 +24,7 @@ def train():
 
     print("This code is running.")
     # Load tokenizer
-    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
+    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -35,13 +39,13 @@ def train():
     #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
     #         f.write(text + "\n")
 
-    print(jax.devices())
-    print(jax.default_backend())
+    # print(jax.devices())
+    # print(jax.default_backend())
 
 
     # Load complete documents (separated by double newlines)
     # This ensures related content stays together
-    with open("training_data/general_knowledge.txt", "r") as f:
+    with open("training_data/alpaca.txt", "r") as f:
         content = f.read()
 
     # Split by double newlines to get complete instruction-response pairs
@@ -54,9 +58,10 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         training_data=training_texts,
-        lr=5e-4,
-        num_blocks=8,
-        num_heads=8,
+        lr=1e-4,
+        num_blocks=12,
+        num_heads=12,
+        embedding_dim=768,  # Must be divisible by num_heads
         max_seq_length=256  # Limit sequence length to avoid memory issues
     )
 
@@ -72,9 +77,9 @@ def train():
     # Train with automatic checkpointing
     # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=10,       # Reduced from 10 to 2 epochs
-        batch_size=32,  
-        checkpoint_path="artifacts/training_logs/jax_gen_kn.pkl",
+        epochs=15,       # Reduced from 10 to 2 epochs
+        batch_size=16,  
+        checkpoint_path="artifacts/training_logs/alpaca200.pkl",
         save_every=1    # Save every 2 epochs
     )
 
@@ -82,6 +87,11 @@ def train():
     print("Finished training model.")
     print("="*60)
     print(f"Train time: {end_train:.4f}s")
+
+    # Save lightweight model-only checkpoint (no optimizer state)
+    print("\nCreating lightweight checkpoint for inference...")
+    trainer.save_model_only("artifacts/models/alpaca200_model_only.pkl")
+    print("Lightweight checkpoint saved!")
 
     # Test generation
     prompt = "What is 5+5?"
@@ -93,7 +103,7 @@ def train():
 
 def extend():
 
-    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
+    with open("artifacts/tokenizer/alpaca_tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -108,9 +118,10 @@ def extend():
         tokenizer,
         training_texts,
         lr=5e-4,  # Match the original training learning rate
-        num_blocks=8,  # Must match checkpoint!
-        num_heads=8,   # Must match checkpoint!
-        max_seq_length=256
+        num_blocks=12,  # Must match checkpoint!
+        num_heads=12,   # Must match checkpoint!
+        embedding_dim=768,  # Must match checkpoint!
+        max_seq_length=512
     )
 
     trainer.extend_training(
@@ -124,7 +135,8 @@ def extend():
 def main():
     """Load a trained model and generate text."""
 
-    with open("artifacts/tokenizer/tokenizer_general_knowledge.pkl", "rb") as f:
+    print("Loading tokenizer...")
+    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
@@ -134,11 +146,23 @@ def main():
         tokenizer,
         dummy_input,
         lr=5e-4,
-        num_blocks=8,  # Must match checkpoint!
-        num_heads=8   # Must match checkpoint!
+        num_blocks=12,  # Must match checkpoint!
+        num_heads=12,   # Must match checkpoint!
+        embedding_dim=768  # Must match checkpoint!
     )
 
-    checkpoint_path = "artifacts/training_logs/jax_gk_12epochs.pkl"
+    # Use model-only checkpoint for faster loading (or fall back to full checkpoint)
+    model_only_path = "artifacts/models/alpaca50k_35epochs_model.pkl"
+    full_checkpoint_path = "artifacts/training_logs/alpaca_50k_training_logs_35epochs.pkl"
+
+    # Try model-only first (smaller, faster)
+    import os
+    if os.path.exists(model_only_path):
+        checkpoint_path = model_only_path
+        print("Loading lightweight model-only checkpoint...")
+    else:
+        checkpoint_path = full_checkpoint_path
+        print("Loading full checkpoint (includes optimizer state)...")
 
     try:
         trainer.load_checkpoint(checkpoint_path)
@@ -148,14 +172,18 @@ def main():
         print("Run: train() function to create a new JAX checkpoint")
         return
 
-    # Test multiple prompts
+    # Test multiple prompts - MUST match training format!
     prompts = [
-        "Design an algorithm to detect plagiarism in academic papers.",
-        "Prove that 2 squared is equal to 4.",
-        "Write a convincing argument in favor of using GPT models.",
-        "Who invented the first successful automobile?",
-        "Summarize how quantum computing works."
+        "Instruction: Construct an analogy based on the given two words. \nInput: Air, Water. \nOutput:",
+        "Instruction: What is the major contribution of the philosopher Immanuel Kant?\nInput: \nOutput:",
+        "Instruction: Create a list of 20 vocabulary words related to marine animals.\nInput: \nOutput:",
+        "Instruction: Write a description of the Golden Gate Bridge.\nInput: \nOutput:",
+        "Instruction: List three best practices for starting a conversation.\nInput: \nOutput:",
+        "Instruction: Explain the importance of NASA's current mission to Mars.\nInput: \nOutput:"
     ]
+
+
+
 
     for prompt in prompts:
         print("="*60)
@@ -164,8 +192,8 @@ def main():
 
         generated_text = trainer.generate(
             prompt,
-            max_length=100,
-            temperature=1,
+            max_length=150,
+            temperature=0.5,
             top_k=30,
             repetition_penalty=1.5,
             debug=False
@@ -174,7 +202,9 @@ def main():
         print(f"Generated: '{generated_text[0]}'")
         print()
 
+
 if __name__ == "__main__":
+    print("Hello World - Starting PyGPT")
     start = time.time()
 
     main_or_train = input("M/T/E? ")
@@ -184,6 +214,8 @@ if __name__ == "__main__":
         extend()
     else:
         main()
+
+    # main()
 
     end = time.time()
     print("="*60)
