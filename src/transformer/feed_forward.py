@@ -42,7 +42,8 @@ class FeedForward():
             B2 (jnp.ndarray): Bias vector for the second linear layer of shape (embedding_dim,).
             ff_input (jnp.ndarray): Input embeddings to the feed-forward network.
         """
-        self.embedding_dim = EmbeddingLayer.default_embedding_dim
+        # Use the actual embedding dimension from the embeddings instance, not the class default
+        self.embedding_dim = embeddings.embedding_dim
         self.ff_dim = ff_dim or self.embedding_dim * 4 # Feed Forward dimension
 
         self.key = jax.random.PRNGKey(0)
