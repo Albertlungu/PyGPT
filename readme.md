@@ -277,6 +277,126 @@ self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
 - `W_K` represents **key weights**, which represent the information that every token offers. They pull and transform the meaning from embeddings into a vector quantity.
   - You may be asking yourself *Wait, aren't embeddings already vectors? If so, then why do I need to transform them further into something the computer can understand?*
   - Well, they are transformed because, in multi-head attention, each head deals with a different part of the token's meaning, while the full embedding represents **everything** about the token itself.
+- `W_V` represents **value weights**, transform token embeddings into value vectors. Values contain the information that will be used when a token is looked at. 
+  - The **embedding** contains the complete definition of a token. **W_V** learns to extract aspects most useful for downstream processing. **Query and key weights** determine which tokens to attend to (attention scores), while value weights determine what information to retrieve from those tokens.
+- Finally, `W_O` represents **output weights**, which are the final projection that comes after attention, where it's already combined information.
+  - Output weights combine the information from all heads in order to pass this to the transformer block. 
+
+All weights except for `W_O` each have shape `(embedding_dim, embedding_dim)`, which is more efficient than `(head_dim, head_dim)`
+>> Again, just like any other learnable parameters, these keys are declared as random vector values, and modified later.
+
+##### The forward method:
+```python
+Q = x @ params['W_Q']
+K = x @ params['W_K']
+V = x @ params["W_V"]
+```
+
+Here, I perform the linear transformation of the input into queries, keys, and values, here is the breakdown of the code and what it does:
+
+- `x` is the input tensor with shape `(batch_size, seq_len, embedding_dim)` from the first transformer block.
+- `params['W_Q']` is the query weight matrix, which is explained above (shape `(embedding_dim, embedding_dim`)
+  - Params is a dictionary containing the weights declared in the `get_params_and_grads` function
+- `@` is the matrix multiplication symbol
+- `Q` is the output query tensor (jnp.jnparray) of shape `(batch_size, seq_len, embedding_dim)`
+
+The same logic is true for the rest of the tensors (K and V)
+
+**What is matrix mutliplication?**
+Take 2 matrices, A and B:
+- A has shape `(m x n)`
+- B has shape `(n x p)`
+- If `A[1]` ≠ `B[0]`, the matrix multiplication does not work
+
+Each entry of the new matrix, C, is built by lining up the `i`-th row of A with the `j`-th column of B, mutliplying those numbers, and then summing them up. If you're a math person, the formula is below:
+
+$$
+C[i,j] = \sum_k{A[i, k] \cdot B[k, j]}
+$$
+
+Where:
+- $i$ is the row index of A (therefore the row index of C), and $0 \leq i \leq m-1$
+- $k$ is the column index of A and the row index of B, and $0 \leq k \leq n-1$
+  - This dimension must match across both arrays (inner dimension)
+- $j$ is the column index of B (therefore the column index of C), and $0 \leq j \leq p-1$
+
+**For example:**
+$$
+A = \begin{bmatrix}
+1 & 2 & 3 & 4\\
+5 & 6 & 7 & 8 \\
+9 & 10 & 11 & 12
+\end{bmatrix}
+
+B = \begin{bmatrix}
+10 & 11 \\
+20 & 21 \\
+30 & 31 \\
+40 & 41
+\end{bmatrix}
+$$
+
+These are denoted with:
+$$
+A \in \Z^{3x4}, \quad
+B \in \Z^{4x2}
+$$
+
+What happens under the hood here for `C[0,0]` ($k=4$):
+$C=AB$ will have shape $3x2$, so the entry $C[0,0]$ is built by taking:
+- row $0$ of $A:[1, 2, 3, 4]$
+- column $0$ of $B:[10, 20, 30, 40]$ 
+  
+And applying dot product:
+$$
+C_{0,0} = \sum_{k=0}^3 A_{0,k} \cdot B_{k,0}
+$$
+
+Expanding it term by term gives:
+$$
+C_{0,0} = A_{0,0}B_{0,0} + A_{0,1}B_{1,0} + A_{0,2}B_{0,2} + A_{0,3}B_{3,0} \\
+\text{Plugging in the values: } C_{0,0} = (1)(10) + (2)(20) + (3)(30) + (4)(40) \\
+C_{0,0} = 10 + 40 + 90 + 160 \\
+C_{0,0} = 300
+$$
+
+This pattern continues for all of the other indices of $C$
+
+**Afterwards**, the weights are reshaped to be in accordance with the number of attention heads, using the `.reshape` method in Python, which simply rearranges the same elements into a different structure. 
+
+When you reshape from `[batch, seq_len, embedding_dim]` to `[batch, num_heads, seq_len, embedding_dim // num_heads]`, you effectively create `num_heads` separate vectors for each token, and each vector is given to each head, where instead of for example, head 1, having to deal with all the floating point numbers inside of `embedding_dim`, it only has to deal with `embedding_dim // num_heads`, allowing for "specialization" of each head.
+
+
+**For example**:
+```python
+# Original array: 1D with 12 elements
+arr = jnp.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+# Shape: (12,)
+
+# Reshape to 2D: 3 rows, 4 columns
+arr_2d = arr.reshape(3, 4)
+# Shape: (3, 4)
+# [[1,  2,  3,  4],
+#  [5,  6,  7,  8],
+#  [9, 10, 11, 12]]
+
+# Reshape to 3D: 2 × 2 × 3
+arr_3d = arr.reshape(2, 2, 3)
+# Shape: (2, 2, 3)
+# [[[1,  2,  3],
+#   [4,  5,  6]],
+#  [[7,  8,  9],
+#   [10, 11, 12]]]
+```
+
+**Next**, we transpose matrices to `[batch, num_heads, seq_len, head_dim]` to allow for the computation of scores later in:
+```python
+scores = Q @ K.transpose(0, 1, 3, 2) / jnp.sqrt(head_dim)
+```
+Which works because of matrix multiplication, which requires the last two dimensions of the first vector to be the same as the first two dimensions of the second vector:
+- Last two dimensions: `[seq_len, head_dim]` - this is what each head operates on
+- First two dimensions: `[batch, num_heads]` - these are just batched
+
 
 
 ## How PyGPT Works
