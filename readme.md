@@ -322,8 +322,7 @@ Where:
 
 **For example:**
 
-$$
-
+```math
 A = \begin{bmatrix}
 1 & 2 & 3 & 4\\
 5 & 6 & 7 & 8 \\
@@ -336,16 +335,14 @@ B = \begin{bmatrix}
 30 & 31 \\
 40 & 41
 \end{bmatrix}
-$$
+```
 
 These are denoted with:
 
-$$
-
+```math
 A \in \mathbb{Z}^{3x4}, \quad
 B \in \mathbb{Z}^{4x2}
-
-$$
+```
 
 What happens under the hood here for `C[0,0]` ($k=4$):
 
@@ -355,16 +352,13 @@ $C=AB$ will have shape $3x2$, so the entry $C[0,0]$ is built by taking:
   
 And applying dot product:
 
-$$
-
+```math
 C_{0,0} = \sum_{k=0}^3 A_{0,k} \cdot B_{k,0}
-
-$$
+```
 
 Expanding it term by term gives:
 
-$$
-
+```math
 C_{0,0} = A_{0,0}B_{0,0} + A_{0,1}B_{1,0} + A_{0,2}B_{0,2} + A_{0,3}B_{3,0} \\
 
 \text{Plugging in the values: } C_{0,0} = (1)(10) + (2)(20) + (3)(30) + (4)(40) \\
@@ -372,8 +366,7 @@ C_{0,0} = A_{0,0}B_{0,0} + A_{0,1}B_{1,0} + A_{0,2}B_{0,2} + A_{0,3}B_{3,0} \\
 C_{0,0} = 10 + 40 + 90 + 160 \\
 
 C_{0,0} = 300
-
-$$
+```
 
 This pattern continues for all of the other indices of $C$
 
