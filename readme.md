@@ -321,6 +321,7 @@ Where:
 - $j$ is the column index of B (therefore the column index of C), and $0 \leq j \leq p-1$
 
 **For example:**
+
 $$
 A = \begin{bmatrix}
 1 & 2 & 3 & 4\\
@@ -337,22 +338,26 @@ B = \begin{bmatrix}
 $$
 
 These are denoted with:
+
 $$
 A \in \Z^{3x4}, \quad
 B \in \Z^{4x2}
 $$
 
 What happens under the hood here for `C[0,0]` ($k=4$):
+
 $C=AB$ will have shape $3x2$, so the entry $C[0,0]$ is built by taking:
 - row $0$ of $A:[1, 2, 3, 4]$
 - column $0$ of $B:[10, 20, 30, 40]$ 
   
 And applying dot product:
+
 $$
 C_{0,0} = \sum_{k=0}^3 A_{0,k} \cdot B_{k,0}
 $$
 
 Expanding it term by term gives:
+
 $$
 C_{0,0} = A_{0,0}B_{0,0} + A_{0,1}B_{1,0} + A_{0,2}B_{0,2} + A_{0,3}B_{3,0} \\
 \text{Plugging in the values: } C_{0,0} = (1)(10) + (2)(20) + (3)(30) + (4)(40) \\
