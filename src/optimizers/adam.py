@@ -63,15 +63,16 @@ class AdamNested:
         if self.schedule == 'warmup':
             # Linear warmup only
             if step < self.warmup_steps:
-                return self.base_lr * (step / self.warmup_steps)
+                # Start from 1e-8 to avoid zero learning rate at step 0
+                return self.base_lr * max(step / self.warmup_steps, 1e-8)
             else:
                 return self.base_lr
 
         elif self.schedule == 'warmup_cosine':
             # Linear warmup + cosine decay
             if step < self.warmup_steps:
-                # Linear warmup
-                return self.base_lr * (step / self.warmup_steps)
+                # Linear warmup - start from small non-zero value
+                return self.base_lr * max(step / self.warmup_steps, 1e-8)
             else:
                 # Cosine decay after warmup
                 if self.total_steps is None:

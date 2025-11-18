@@ -34,14 +34,14 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
+    def __init__(self, tokenizer, training_data=None, pre_chunked_token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
         """
         Initialize Trainer with model architecture.
 
         Args:
             tokenizer: BPE tokenizer instance
-            user_input (list): List of text strings for training (default: None)
-            pretokenized_data (loaded pkl file): The training data tokenized before training into a pkl file. Use pickle.load() to give here. (default: None)
+            training_data (list): List of text strings for training (default: None)
+            pre_chunked_token_ids (list): Pre-chunked token sequences from data loader (default: None)
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
             num_heads (int): Number of attention heads per block (default: 8)
@@ -66,27 +66,64 @@ class Trainer:
             max_seq_length=max_seq_length
         )
 
-        self.token_ids = []
+        # Use pre-chunked data if provided, otherwise chunk raw text
+        if pre_chunked_token_ids is not None:
+            print("Using pre-chunked token sequences from data loader")
+            self.token_ids = pre_chunked_token_ids
 
-        # Process training data with proper chunking
-        for text in training_data:
-            ids = tokenizer.encode(text)
+            # Print sequence length statistics
+            seq_lengths = [len(seq) for seq in self.token_ids]
+            print(f"\n{'='*60}")
+            print("TRAINING DATA - SEQUENCE LENGTH STATISTICS")
+            print(f"{'='*60}")
+            print(f"Total sequences: {len(seq_lengths)}")
+            print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
+            print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
+            print(f"Max length: {max(seq_lengths)} tokens")
+            print(f"Min length: {min(seq_lengths)} tokens")
+            print(f"{'='*60}\n")
+        elif training_data is not None:
+            print("Processing raw text data with chunking at training level")
+            self.token_ids = []
 
-            # Chunk the sequence if it's too long
-            if len(ids) > max_seq_length - 1:  # -1 to leave room for EOS
-                # Split into chunks
-                for i in range(0, len(ids), max_seq_length - 1):
-                    chunk = ids[i:i + max_seq_length - 1]
+            # Process training data with proper chunking (legacy behavior)
+            num_chunked = 0
+            for text in training_data:
+                ids = tokenizer.encode(text)
 
-                    # Only add EOS to the LAST chunk of this document
-                    if i + max_seq_length - 1 >= len(ids):
-                        chunk.append(tokenizer.eos_token_id)
+                # Chunk the sequence if it's too long
+                if len(ids) > max_seq_length - 1:  # -1 to leave room for EOS
+                    num_chunked += 1
+                    # Split into chunks
+                    for i in range(0, len(ids), max_seq_length - 1):
+                        chunk = ids[i:i + max_seq_length - 1]
 
-                    self.token_ids.append(chunk)
-            else:
-                # Short sequence - just add EOS at the end
-                ids.append(tokenizer.eos_token_id)
-                self.token_ids.append(ids)
+                        # Only add EOS to the LAST chunk of this document
+                        if i + max_seq_length - 1 >= len(ids):
+                            chunk.append(tokenizer.eos_token_id)
+
+                        self.token_ids.append(chunk)
+                else:
+                    # Short sequence - just add EOS at the end
+                    ids.append(tokenizer.eos_token_id)
+                    self.token_ids.append(ids)
+
+            # Print sequence length statistics
+            seq_lengths = [len(seq) for seq in self.token_ids]
+            print(f"\n{'='*60}")
+            print("SEQUENCE LENGTH STATISTICS")
+            print(f"{'='*60}")
+            print(f"Original documents: {len(training_data)}")
+            print(f"Documents chunked: {num_chunked} ({num_chunked/len(training_data)*100:.1f}%)")
+            print(f"Total sequences (after chunking): {len(seq_lengths)}")
+            print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
+            print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
+            print(f"Max length: {max(seq_lengths)} tokens")
+            print(f"Min length: {min(seq_lengths)} tokens")
+            print(f"Sequences > max_seq_length ({max_seq_length}): {sum(1 for l in seq_lengths if l > max_seq_length)} (should be 0)")
+            print(f"{'='*60}\n")
+        else:
+            raise ValueError("Either training_data or pre_chunked_token_ids must be provided")
 
 
         self.num_blocks = num_blocks
@@ -432,15 +469,11 @@ class Trainer:
         try:
             for epoch in range(epochs):
                 total_loss = 0
+                total_lr = 0  # Track sum of learning rates
                 print(f"\nStarting epoch {epoch+1}/{epochs}")
 
                 for batch_idx, batch in enumerate(tqdm(batches, desc=f"Epoch {epoch+1}/{epochs}", leave=False, file=sys.stderr)):
                     start_time = t.time()
-
-                    # Update learning rate based on schedule
-                    if self.use_lr_schedule:
-                        current_lr = self.optimizer.get_lr()
-                        self.optimizer.lr = current_lr
 
                     # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
@@ -458,9 +491,17 @@ class Trainer:
                     loss, grads = self.compute_loss_and_grads(input_tokens, target_tokens)
                     # print(f"  Loss computed: {float(loss):.4f}")
 
-                    # Update parameters
+                    # Update parameters (this increments self.optimizer.t)
                     # print(f"  Updating parameters...")
                     self.update_params(grads)
+
+                    # Update learning rate AFTER optimizer step (when t is correct)
+                    if self.use_lr_schedule:
+                        current_lr = self.optimizer.get_lr()
+                        self.optimizer.lr = current_lr
+                        total_lr += current_lr
+                    else:
+                        total_lr += self.optimizer.lr
 
                     total_loss += float(loss)  # Convert JAX scalar to Python float
 
@@ -468,8 +509,9 @@ class Trainer:
                     # print(f"  Batch complete in {batch_time:.2f}s")
 
                 avg_loss = total_loss / len(batches)
-                current_lr = self.optimizer.lr if not self.use_lr_schedule else self.optimizer.get_lr()
-                print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}, LR: {current_lr:.6f}")
+                avg_lr = total_lr / len(batches)
+                final_lr = self.optimizer.lr if not self.use_lr_schedule else self.optimizer.get_lr()
+                print(f"Epoch {epoch+1}/{epochs} complete. Avg loss: {avg_loss:.4f}, Avg LR: {avg_lr:.6f}, Final LR: {final_lr:.6f}")
 
                 # Save checkpoint with timestamp
                 if (epoch + 1) % save_every == 0:
@@ -547,6 +589,15 @@ class Trainer:
         print("="*60)
         print("MODEL ARCHITECTURE SUMMARY")
         print("="*60)
+
+        # Print JAX device information
+        devices = jax.devices()
+        backend = jax.default_backend()
+        print(f"JAX Backend:          {backend}")
+        print(f"JAX Devices:          {devices}")
+        print(f"Device Type:          {devices[0].device_kind if devices else 'Unknown'}")
+        print("-"*60)
+
         print(f"Vocabulary Size:      {self.tokenizer.vocab_size:,}")
         print(f"Embedding Dimension:  {self.embedding_layer.embedding_dim}")
         print(f"Max Sequence Length:  {self.embedding_layer.max_seq_length}")

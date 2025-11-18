@@ -58,12 +58,15 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         training_data=training_texts,
-        lr=1e-4,
-        num_blocks=12,
-        num_heads=12,
-        embedding_dim=768,  # Must be divisible by num_heads
-        max_seq_length=256  # Limit sequence length to avoid memory issues
+        lr=3e-4,  # Slightly higher base LR with schedule
+        num_blocks=2,
+        num_heads=2,
+        embedding_dim=128,  # Must be divisible by num_heads
+        max_seq_length=256,  # Chunk long sequences to avoid memory issues
+        use_lr_schedule=True,  # Enable warmup + cosine decay
+        warmup_steps=500  # Warmup for first 500 steps
     )
+
 
     # Print model architecture summary
     print("="*60)
@@ -77,7 +80,7 @@ def train():
     # Train with automatic checkpointing
     # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=15,       # Reduced from 10 to 2 epochs
+        epochs=2,       # Reduced from 10 to 2 epochs
         batch_size=16,  
         checkpoint_path="artifacts/training_logs/alpaca200.pkl",
         save_every=1    # Save every 2 epochs
@@ -94,8 +97,8 @@ def train():
     print("Lightweight checkpoint saved!")
 
     # Test generation
-    prompt = "What is 5+5?"
-    generated_text = trainer.generate(prompt, max_length=500)
+    prompt = "Instruction: List three best practices for starting a conversation.\nInput: \nOutput:"
+    generated_text = trainer.generate(prompt, max_length=200)
     print("="*60)
     print("Generated text:")
     print(generated_text[0])
