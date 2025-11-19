@@ -1,10 +1,6 @@
 import os
 # import numpy as np
 import sys
-
-# Configure JAX to use CPU only (important for Mac/local inference)
-# os.environ['JAX_PLATFORMS'] = 'cpu'  # CRITICAL: Avoid slow Metal backend
-
 # import jax
 # import jax.numpy as jnp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -16,6 +12,7 @@ from datasets import load_dataset
 
 import src.utils.config
 from embeddings.embeddings import EmbeddingLayer
+from tokenizer.pre_tokenizer import TikToken
 from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
@@ -23,28 +20,14 @@ def train():
     """Train a new model from scratch with JAX architecture."""
 
     print("This code is running.")
-    # Load tokenizer
+    # Load tokenizer - using TikToken
+    # tokenizer = TikToken()
+    # print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
+
     with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
 
-    # max_lines = 10000
-    # dataset = load_dataset("tatsu-lab/alpaca")
-
-    # train_data = dataset["train"]
-    # train_data = train_data.select(range(max_lines))
-    
-    # with open("tokenizer_training_data/alpaca_sample_utf8.txt", "w", encoding="utf-8") as f:
-    #     for ex in train_data:
-    #         text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
-    #         f.write(text + "\n")
-
-    # print(jax.devices())
-    # print(jax.default_backend())
-
-
-    # Load complete documents (separated by double newlines)
-    # This ensures related content stays together
     with open("training_data/alpaca.txt", "r") as f:
         content = f.read()
 
@@ -59,9 +42,9 @@ def train():
         tokenizer=tokenizer,
         training_data=training_texts,
         lr=3e-4,  # Slightly higher base LR with schedule
-        num_blocks=2,
-        num_heads=2,
-        embedding_dim=128,  # Must be divisible by num_heads
+        num_blocks=12,
+        num_heads=12,
+        embedding_dim=768,  # Must be divisible by num_heads
         max_seq_length=256,  # Chunk long sequences to avoid memory issues
         use_lr_schedule=True,  # Enable warmup + cosine decay
         warmup_steps=500  # Warmup for first 500 steps
@@ -80,7 +63,7 @@ def train():
     # Train with automatic checkpointing
     # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=2,       # Reduced from 10 to 2 epochs
+        epochs=100,       # Reduced from 10 to 2 epochs
         batch_size=16,  
         checkpoint_path="artifacts/training_logs/alpaca200.pkl",
         save_every=1    # Save every 2 epochs
@@ -101,14 +84,13 @@ def train():
     generated_text = trainer.generate(prompt, max_length=200)
     print("="*60)
     print("Generated text:")
-    print(generated_text[0])
+    print(generated_text)
     print("="*60)
 
 def extend():
 
-    with open("artifacts/tokenizer/alpaca_tokenizer.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+    tokenizer = TikToken()
+    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
 
     # Load complete documents (separated by double newlines)
     with open("training_data/general_knowledge.txt", "r", encoding="utf-8") as f:
@@ -139,9 +121,8 @@ def main():
     """Load a trained model and generate text."""
 
     print("Loading tokenizer...")
-    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+    tokenizer = TikToken()
+    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
 
     # Create trainer with same architecture as checkpoint
     dummy_input = ["dummy"]
@@ -149,13 +130,13 @@ def main():
         tokenizer,
         dummy_input,
         lr=5e-4,
-        num_blocks=12,  # Must match checkpoint!
-        num_heads=12,   # Must match checkpoint!
-        embedding_dim=768  # Must match checkpoint!
+        num_blocks=4,  # Must match checkpoint!
+        num_heads=4,   # Must match checkpoint!
+        embedding_dim=128  # Must match checkpoint!
     )
 
     # Use model-only checkpoint for faster loading (or fall back to full checkpoint)
-    model_only_path = "artifacts/models/alpaca50k_35epochs_model.pkl"
+    model_only_path = "artifacts/models/alpaca200_model_only.pkl"
     full_checkpoint_path = "artifacts/training_logs/alpaca_50k_training_logs_35epochs.pkl"
 
     # Try model-only first (smaller, faster)
@@ -202,7 +183,7 @@ def main():
             debug=False
         )
 
-        print(f"Generated: '{generated_text[0]}'")
+        print(f"Generated: '{generated_text}'")
         print()
 
 

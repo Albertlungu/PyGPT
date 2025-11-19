@@ -31,11 +31,11 @@ class EmbeddingLayer:
         Initializes an EmbeddingLayer object.
 
         Parameters:
-            vocab_size (int): the size of the vocabulary. Optional.
+            vocab_size (int): the size of the vocabulary. Required.
             embedding_dim (int): the size of the embedding dimension. Optional.
-            max_seq_length (int, optional): the maximum sequence length. Defaults to 512. Optional.
+            max_seq_length (int, optional): the maximum sequence length. Defaults to 256. Optional.
         """
-        self.vocab_size = vocab_size or BPETokenizer.default_vocab_size# taken from the tokenizer.pkl inside of artifacts/tokenizer.pkl or from inside tokenizers/tokenizer_class.py
+        self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim or self.default_embedding_dim
         self.max_seq_length = max_seq_length
         self.n = n
@@ -48,7 +48,7 @@ class EmbeddingLayer:
         self.positional_encodings = self.positional_encoding_class._create_positional_encoding(n) # using the function that will be declared later to get the positional encoding of a certain word
 
     @staticmethod
-    def pad_token_ids(max_len, token_ids, pad_token_id=0):
+    def pad_token_ids(max_len, token_ids, pad_token_id=None):
         batch_size = len(token_ids)
         padded = jnp.full((batch_size, max_len), pad_token_id, dtype=jnp.int32)
         lengths = jnp.array([min(len(seq), max_len) for seq in token_ids])
@@ -62,7 +62,7 @@ class EmbeddingLayer:
         
 
     @staticmethod
-    def embedding_fwd(params, padded_token_ids, pad_token_id=0):
+    def embedding_fwd(params, padded_token_ids, pad_token_id=None):
         # Unpack params - params is now a dict for consistency with other layers
         embeddings = params['embeddings']
         positional_encodings = params['positional_encodings']

@@ -53,18 +53,18 @@ class CrossEntropyLoss:
         # Handle both single ignore_index and multiple ignore_indices
         if ignore_indices is not None:
             # Create mask that ignores multiple indices
-            mask = jnp.ones_like(targets, dtype=jnp.float16)
+            mask = jnp.ones_like(targets, dtype=jnp.float32)
             for idx in ignore_indices:
-                mask = mask * (targets != idx).astype(jnp.float16)
+                mask = mask * (targets != idx).astype(jnp.float32)
         elif ignore_index is not None:
-            mask = (targets != ignore_index).astype(jnp.float16)
+            mask = (targets != ignore_index).astype(jnp.float32)
         else:
-            mask = jnp.ones_like(targets, dtype=jnp.float16)
+            mask = jnp.ones_like(targets, dtype=jnp.float32)
 
         # Apply EOS weighting if specified
         if eos_weight is not None and eos_token_id is not None:
             # Create EOS mask: 1.0 for non-EOS, eos_weight for EOS tokens
-            eos_mask = jnp.where(targets == eos_token_id, eos_weight, 1.0).astype(jnp.float16)
+            eos_mask = jnp.where(targets == eos_token_id, eos_weight, 1.0).astype(jnp.float32)
             mask = mask * eos_mask
 
         neg_log_prob = -selected_log_probs * mask

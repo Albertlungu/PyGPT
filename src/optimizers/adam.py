@@ -34,6 +34,7 @@ class AdamNested:
         self._jit_adam_step = jax.jit(self._adam_step_fn)
 
     @staticmethod
+    @jax.jit
     def _adam_step_fn(params, grads, m, v, t, beta1, beta2, lr, epsilon):
         """Pure JAX function for Adam update (can be JIT compiled)."""
         # Update biased first moment estimate

@@ -16,7 +16,7 @@ from src.transformer.transformer_stack import TransformerStack
 from src.transformer.transformer_block import TransformerBlock
 from src.transformer.output_layer import OutputLayer
 from src.training.loss_function import CrossEntropyLoss
-from src.tokenizer.tokenizer_class import BPETokenizer
+from src.tokenizer.pre_tokenizer import TikToken
 from src.optimizers.adam import AdamNested
 
 
@@ -39,7 +39,7 @@ class Trainer:
         Initialize Trainer with model architecture.
 
         Args:
-            tokenizer: BPE tokenizer instance
+            tokenizer: Tokenizer instance (TikToken or BPETokenizer)
             training_data (list): List of text strings for training (default: None)
             pre_chunked_token_ids (list): Pre-chunked token sequences from data loader (default: None)
             lr (float): Learning rate (default: 1e-4)
@@ -164,6 +164,10 @@ class Trainer:
         embedding_dim = self.embedding_layer.embedding_dim
         num_blocks = self.num_blocks
 
+        # Store tokenizer IDs as static values for JIT compilation
+        padding_token_id = self.tokenizer.padding_token_id
+        eos_token_id = self.tokenizer.eos_token_id
+
         @jax.jit
         def loss_and_grad_fn(embed_params, stack_params, output_params, token_ids, targets):
             """JIT-compiled loss and gradient computation."""
@@ -183,12 +187,13 @@ class Trainer:
 
                 logits = OutputLayer.fwd(output_params, current)
                 # Ignore padding (0) during loss calculation
+                # Use ignore_index (scalar) instead of ignore_indices (list) for JIT compatibility
                 loss = CrossEntropyLoss.fwd(
                     logits,
                     targets,
-                    ignore_indices=[self.tokenizer.padding_token_id],
+                    ignore_index=0,
                     eos_weight=1,  # Reduce EOS importance to prevent early stopping
-                    eos_token_id=self.tokenizer.eos_token_id
+                    eos_token_id=32000
                 )
                 return loss
 
@@ -323,6 +328,7 @@ class Trainer:
         self.output_layer.W_out = output_dict['W_out']
         self.output_layer.b_out = output_dict['b_out']
 
+    @functools.partial(jax.jit, static_argnums=())
     def fwd(self, token_ids):
         """
         Forward pass through entire model using JAX.
@@ -476,6 +482,8 @@ class Trainer:
 
                 for batch_idx, batch in enumerate(tqdm(batches, desc=f"Epoch {epoch+1}/{epochs}", leave=False, file=sys.stderr)):
                     start_time = t.time()
+
+                    # print(jax.default_backend())
 
                     # print(f"[Epoch {epoch+1}, Batch {batch_idx+1}/{len(batches)}] Converting to JAX array...")
                     # Convert to JAX array
@@ -912,12 +920,10 @@ class Trainer:
 
 
 def main():
-    with open("artifacts/tokenizer.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+    tokenizer = TikToken()
+    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
 
-
-    user_input = "Hello world"
+    user_input = ["Hello world"]
     trainer = Trainer(tokenizer, user_input, num_blocks=12, num_heads=12)
 
     trainer.print_model_summary()
