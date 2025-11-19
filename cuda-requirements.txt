@@ -1,0 +1,5 @@
+datasets
+matplotlib
+numpy
+tqdm
+jax["cuda12"]

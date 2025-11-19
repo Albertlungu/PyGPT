@@ -1,12 +1,13 @@
 *.xml
 *jax_training*
-*training_logs*
-*.txt
+training_logs
 
 **/*.pyc
 tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242
 
 venv
+
+*.python-version
 
 **/.DS_Store
 
