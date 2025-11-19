@@ -46,17 +46,18 @@ class BPETokenizer:
         Initializes a BPETokenizer object.
         If input is None, vocab size is set to 1000.
         """
-        self.vocab_size = vocab_size or self.default_vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
+        self.target_vocab_size = vocab_size or self.default_vocab_size # int(np.sqrt(len(input))) # default vocab_size set to 32000 for a large dataset
         self.base_vocab_size = 256
         self.merges = {} # initializing merges dictionary
         self.vocab = {idx: bytes([idx]) for idx in range(256)}
-        # Don't iterate over empty merges at initialization
         self._vocab_dirty = False  # Track if vocab needs rebuilding
 
-        self.eos_token_id = self.vocab_size
-        self.vocab[self.eos_token_id] = b"<EOS>"  # Fixed: should be bytes not string
+        self.eos_token_id = self.target_vocab_size - 1
+        self.vocab[self.eos_token_id] = b'<EOS>'
         self.padding_token_id = 0
-        self.vocab_size += 1
+
+        self.vocab_size = self.target_vocab_size
+
 
     def _rebuild_vocab(self):
         """
@@ -101,6 +102,8 @@ class BPETokenizer:
             else:
                 print(f"Error: Cannot create token {idx} from tokens {p0} and {p1}")
         
+        vocab[self.eos_token_id] = b"<EOS>"
+
         self.vocab = vocab
         self._vocab_dirty = False
 
@@ -176,7 +179,7 @@ class BPETokenizer:
         from collections import defaultdict
         import heapq
 
-        num_merges = self.vocab_size - self.base_vocab_size
+        num_merges = self.vocab_size - self.base_vocab_size - 1 # -1 For EOS token id
         merges = {}
         input = list(input[:dataset_length])
         base_vocab_start = self.base_vocab_size
@@ -285,12 +288,12 @@ class BPETokenizer:
             input = new_input
             merges[pair] = idx
             
-            # CRITICAL FIX: Update vocab incrementally for this new merge
-            if pair[0] in self.vocab and pair[1] in self.vocab:
-                self.vocab[idx] = self.vocab[pair[0]] + self.vocab[pair[1]]
+            if idx != self.eos_token_id:
+                if pair[0] in self.vocab and pair[1] in self.vocab:
+                    self.vocab[idx] = self.vocab[pair[0]] + self.vocab[pair[1]]
 
         self.merges = merges
-        # Don't rebuild vocab since we've been updating it incrementally
+        self.vocab[self.eos_token_id] = b"<EOS>" # Make sure that EOS token stays
         self._vocab_dirty = False
         return input
 
@@ -299,25 +302,22 @@ class BPETokenizer:
         Given a list of ids, returns the corresponding text.
         OPTIMIZED: Removed redundant _ensure_vocab() call - vocab is already built.
         """
-        tokens = b"".join(self.vocab.get(idx, b"?") for idx in ids)  # Handle missing tokens gracefully
-        text = tokens.decode("utf-8", errors='replace')  # Handle decoding errors gracefully
+        tokens = b"".join(self.vocab.get(idx, b"?") for idx in ids)
+        text = tokens.decode("utf-8", errors='replace')
         return text
 
     def encode(self, text):
         """
         Given a string of text, returns the corresponding list of ids.
-        OPTIMIZED: Heap-based approach for O(n log n) performance instead of O(n²).
+        Heap-based approach for O(n log n) performance instead of O(n²).
         """
         import heapq
 
         tokens = list(text.encode("utf-8"))
 
-        # Early exit for short sequences
         if len(tokens) < 2:
             return tokens
-
-        # Build initial heap of all mergeable pairs with their positions
-        # Heap stores: (merge_idx, position, pair_value)
+        
         heap = []
         pair_at_pos = {}  # Track which pair is at each position
 
@@ -332,7 +332,7 @@ class BPETokenizer:
         while heap:
             merge_idx, pos, pair = heapq.heappop(heap)
 
-            # Validate that this position hasn't been invalidated by previous merges
+            # Make sure that this position hasn't been invalidated by previous merges
             if pos >= len(tokens) - 1:
                 continue
             if (tokens[pos], tokens[pos + 1]) != pair:
