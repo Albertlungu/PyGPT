@@ -15,17 +15,18 @@ This is used as more of a learning experience for myself to understand the conce
 ## Libraries used
 - numpy
 - JAX-metal (made to run on mac)
+  - Or JAX (Cuda)
 - pickle
 - sys
 - os
 - matplotlib
 
-## Installation and Setup (MacOS)
+## Installation and Setup (MacOS METAL)
 This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below.
 
 
 ```bash
-git clone -b JAX-main https://github.com/Albertlungu/PyGPT.git
+git clone JAX https://github.com/Albertlungu/PyGPT.git
 ```
 
 **Install pyenv on your computer and verify installation**
@@ -79,15 +80,36 @@ ___
 pip install -r requirements.txt
 ```
 
-## Why run this on Python 3.10?
-This is because jax-metal runs most reliably on the following versions, allowing the program to take full advantage of the Apple M-series METAl-based GPUs:
-```python
-jax-metal==0.1.1
-jax==0.5.0 
-jaxlib==0.5.0
+## Installation and Setup (Cuda-enabled GPU)
+```bash
+git clone "https://github.com/Albertlungu/PyGPT.git" #Clone the github repository
+cd PyGPT
 ```
 
-Without GPU usage, JAX would be forced to run on CPU, which, although fast, is greatly overshadowed by a GPU's ability to compute mathematical relationships in parallel.
+To see your cuda version:
+```bash
+nvidia-smi
+```
+Install the jax version that has your version of cuda enabled. You will see this version in the top right corner once you run the above command.
+
+Start virtual environment
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r gpu-requirements.txt # If your cuda version is different than 12.x, modify the gpu-requirements file to reflect that
+```
+
+**Upon runtime**, you may receive an error saying:
+```bash
+RuntimeError: Unable to load cuSPARSE. Is it installed?
+```
+And then telling you that it will run on CPU rather than GPU.
+
+To fix, run:
+```bash
+unset LD_LIBRARY_PATH
+```
+
 
 ## Data used in tokenizer and model
 
@@ -208,7 +230,22 @@ To decompress the data, simply perform the replacements in the reverse order.
 
 **Source**: [Wikipedia](https://en.wikipedia.org/wiki/Byte-pair_encoding#:~:text=The%20original%20BPE%20algorithm%20operates,the%20target%20text%20effectively%20compressed)
 
+## Other tokenizer option
+You could, alternatively, use the tokenizer from OpenAI's TikToken library, which I also support. To do this, simply uncomment this in main.py:
+```python
+Load tokenizer - using TikToken
+tokenizer = TikToken()
+print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
+```
 
+And comment out:
+```python
+with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
+    tokenizer = pickle.load(f)
+    tokenizer._ensure_vocab()
+```
+
+This might be biased, but I still recommend using my own tokenizer, since it is trained specifically on the dataset used (alpaca), and is what the code was optimized for. You may run into errors while using TikToken.
 
 ## Embeddings
 My file for the embeddings can be found in `src/embeddings/embeddings.py`. I have a more comprehensive markdown file on how my embeddings work, so you can check that out at `concepts/positional_encoding.md`. However, this section will give a *higher level* overview on embeddings in general and positional encoding.
