@@ -406,6 +406,8 @@ class Trainer:
 
         # Unpack updated parameters back to model
         self._unflatten_params(updated_params)
+        self.output_layer.W_out = self.embedding_layer.embeddings.T # WEIGHT TYING WAS MESSING UP MY LOSS ASASDJASGAKJDHASAJKDH
+        # Anyways force weight tying by making W_out ALWAYS = embeddings.T
         
 
     def _get_timestamped_checkpoint_path(self, base_path):
