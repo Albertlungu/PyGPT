@@ -97,6 +97,64 @@ class MultiHeadAttention:
 
         return output
     
+    def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
+        """
+        Fwd pass with KV cache for faster generation
+
+        Args:
+            params (dict): Dictionary with W_Q, W_K, W_V, and W_O
+            x (jnp.jnparray): the new token embeddings only. Shape [batch_size, new_seq_len, embedding_dim]
+                during gen, new_seq_len will be = 1
+            num_heads (int): number of attention heads
+            head_dim (int): Dimensions/head
+            embedding_dim (int): Total embedding dimension
+            past_kv (tuple, optional): Tuple of (past_K, past_V) from previous step. Defaults to None.
+        """
+        batch_size, new_seq_len, _ = x.shape
+
+        Q = x @ params["W_Q"]
+        K_new = x @ params["W_K"]
+        V_new = x @ params["W_V"]
+
+        Q = Q.reshape(batch_size, new_seq_len, num_heads, head_dim)
+        K_new = K_new.reshape(batch_size, new_seq_len, num_heads, head_dim)
+        V_new = V_new.reshape(batch_size, new_seq_len, num_heads, head_dim)
+
+        Q = Q.transpose(0, 2, 1, 3)
+        K_new = K_new.transpose(0, 2, 1, 3)
+        V_new = V_new.transpose(0, 2, 1, 3)
+
+        if past_kv is not None:
+            past_K, past_V = past_kv
+            K = jnp.concatenate([past_K, K_new], axis=2)
+            V = jnp.concatenate([past_V, V_new], axis=2)
+        else:
+            K = K_new
+            V = V_new
+
+        total_seq_len = K.shape[2] # Past seq len + new seq len
+        scores = Q @ K.transpose(0, 1, 2, 3) / jnp.sqrt(head_dim)
+
+        mask = jnp.ones((new_seq_len, total_seq_len))
+        if new_seq_len > 1:
+            past_len = total_seq_len - new_seq_len
+            for i in range(new_seq_len):
+                mask = mask.at[i, past_len + i + 1:].set(0)
+
+        mask = mask[None, None, :, :]
+        scores = jnp.where(mask == 0, -1e9, scores)
+
+        attn_weights = jax.nn.softmax(scores, axis=-1)
+        attn_out = attn_weights @ V
+
+        attn_out = attn_out.transpose(0, 2, 1, 3)
+        attn_out = attn_out.reshape(batch_size, new_seq_len, embedding_dim)
+
+        out = attn_out @ params["W_O"]
+
+        return out, (K, V)
+
+    
     def compute_grads(self, x, d_output):
         """
         Most efficient version of backprop using JAX's vjp
