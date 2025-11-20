@@ -97,6 +97,8 @@ class MultiHeadAttention:
 
         return output
     
+    @staticmethod
+    @jax.jit
     def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
         """
         Fwd pass with KV cache for faster generation

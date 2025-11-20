@@ -16,6 +16,30 @@ from tokenizer.pre_tokenizer import TikToken
 from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
+def save_token_ids(output_path):
+    """
+    Save token ids to a pickled file in order to avoid 10 minutes of prep time during training.
+    """
+
+    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+
+    with open("training_data/alpaca.txt", "r") as f:
+        content = f.read()
+
+    # Split by double newlines to get complete instruction-response pairs
+    training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
+
+    token_ids = []
+    for text in tqdm(training_texts):
+        ids = tokenizer.encode(text)
+        ids.append(tokenizer.eos_token_id)
+        token_ids.append(ids)
+
+    with open(output_path, "wb") as f:
+        pickle.dump(token_ids, f)
+
 def train():
     """Train a new model from scratch with JAX architecture."""
 
@@ -34,17 +58,20 @@ def train():
     # Split by double newlines to get complete instruction-response pairs
     training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
 
+    with open("training_data/alpaca_tokenized.pkl", "rb") as f:
+        token_ids = pickle.load(f)
+
     print("="*60)
     print("Appended training texts to list")
     print("="*60)
 
     trainer = Trainer(
         tokenizer=tokenizer,
-        training_data=training_texts,
-        lr=3e-4,  # Slightly higher base LR with schedule
-        num_blocks=12,
-        num_heads=12,
-        embedding_dim=768,  # Must be divisible by num_heads
+        token_ids=token_ids,
+        lr=1e-4,  # Slightly higher base LR with schedule
+        num_blocks=4,
+        num_heads=4,
+        embedding_dim=256,  # Must be divisible by num_heads
         max_seq_length=256,  # Chunk long sequences to avoid memory issues
         use_lr_schedule=True,  # Enable warmup + cosine decay
         warmup_steps=500  # Warmup for first 500 steps
@@ -65,7 +92,7 @@ def train():
     trainer.train(
         epochs=100,       # Reduced from 10 to 2 epochs
         batch_size=16,  
-        checkpoint_path="artifacts/training_logs/alpaca200.pkl",
+        checkpoint_path="artifacts/training_logs/alpaca284.pkl",
         save_every=1    # Save every 2 epochs
     )
 
@@ -191,11 +218,13 @@ if __name__ == "__main__":
     print("Hello World - Starting PyGPT")
     start = time.time()
 
-    main_or_train = input("M/T/E? ")
+    main_or_train = input("M/T/E/ids? ")
     if main_or_train.lower() == 't':
         train()
     elif main_or_train.lower() == 'e':
         extend()
+    elif main_or_train.lower() == "ids":
+        save_token_ids("training_data/alpaca_tokenized.pkl")
     else:
         main()
 

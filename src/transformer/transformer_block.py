@@ -121,6 +121,45 @@ class TransformerBlock:
         final_output = residual_2 + ff_output
 
         return final_output
+    
+    @staticmethod
+    @jax.jit
+    def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
+        """
+        Forward pass with KV-cache
+
+        Args:
+            params (dict): Block params
+            x (jnp.jnparray): new token embeddings, shape: [batch, 1, embedding_dim]
+            num_heads (int): Number of attention heads
+            head_dim (int): Dimension of each head
+            embedding_dim (int): Embedding dimension
+            past_kv (jnp.jnparray, optional): Cached K and V from the layer's other calls. Defaults to None.
+        
+        Returns:
+            output: (batch, 1, embedding_dim)
+            new_kv: Updated (K, V) cache
+        """
+        res1 = x
+        ln1_out = TransformerBlock.layer_norm(x, params['gamma_1'], params['beta_1'])
+
+        attn_out, new_kv = MultiHeadAttention.fwd_with_cache(
+            params['attn'],
+            ln1_out,
+            num_heads,
+            head_dim,
+            embedding_dim,
+            past_kv=past_kv
+        )
+        after_attention = res1 + attn_out
+
+        res2 = after_attention
+        ln2_out = TransformerBlock.layer_norm(after_attention, params['gamma_2'], params['beta_2'])
+
+        ff_out = FeedForward.fwd(params['ffn'], ln2_out)
+        final_out = res2 + ff_out
+
+        return final_out, new_kv
 
     def get_params(self):
         """

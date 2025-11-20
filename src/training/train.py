@@ -34,14 +34,13 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, pre_chunked_token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
+    def __init__(self, tokenizer, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
         """
         Initialize Trainer with model architecture.
 
         Args:
             tokenizer: Tokenizer instance (TikToken or BPETokenizer)
             training_data (list): List of text strings for training (default: None)
-            pre_chunked_token_ids (list): Pre-chunked token sequences from data loader (default: None)
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
             num_heads (int): Number of attention heads per block (default: 8)
@@ -66,64 +65,76 @@ class Trainer:
             max_seq_length=max_seq_length
         )
 
+        if token_ids and training_data is not None:
+            token_ids = []
+            for text in tqdm(training_data):
+                ids = self.tokenizer.encode(text)
+                ids.append(self.tokenizer.eos_token_id)
+                self.token_ids.append(ids)
+
+        self.token_ids = token_ids
+
+        
+
         # Use pre-chunked data if provided, otherwise chunk raw text
-        if pre_chunked_token_ids is not None:
-            print("Using pre-chunked token sequences from data loader")
-            self.token_ids = pre_chunked_token_ids
+        # if pre_chunked_token_ids is not None:
+        #     print("Using pre-chunked token sequences from data loader")
+        #     self.token_ids = pre_chunked_token_ids
 
-            # Print sequence length statistics
-            seq_lengths = [len(seq) for seq in self.token_ids]
-            print(f"\n{'='*60}")
-            print("TRAINING DATA - SEQUENCE LENGTH STATISTICS")
-            print(f"{'='*60}")
-            print(f"Total sequences: {len(seq_lengths)}")
-            print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
-            print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
-            print(f"Max length: {max(seq_lengths)} tokens")
-            print(f"Min length: {min(seq_lengths)} tokens")
-            print(f"{'='*60}\n")
-        elif training_data is not None:
-            print("Processing raw text data with chunking at training level")
-            self.token_ids = []
+        #     # Print sequence length statistics
+        #     seq_lengths = [len(seq) for seq in self.token_ids]
+        #     print(f"\n{'='*60}")
+        #     print("TRAINING DATA - SEQUENCE LENGTH STATISTICS")
+        #     print(f"{'='*60}")
+        #     print(f"Total sequences: {len(seq_lengths)}")
+        #     print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
+        #     print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
+        #     print(f"Max length: {max(seq_lengths)} tokens")
+        #     print(f"Min length: {min(seq_lengths)} tokens")
+        #     print(f"{'='*60}\n")
+        # elif training_data is not None:
+        #     print("Processing raw text data with chunking at training level")
+        #     self.token_ids = []
 
-            # Process training data with proper chunking (legacy behavior)
-            num_chunked = 0
-            for text in training_data:
-                ids = tokenizer.encode(text)
+        #     # Process training data with proper chunking (legacy behavior)
+        #     num_chunked = 0
+        #     for text in training_data:
+        #         ids = tokenizer.encode(text)
 
-                # Chunk the sequence if it's too long
-                if len(ids) > max_seq_length - 1:  # -1 to leave room for EOS
-                    num_chunked += 1
-                    # Split into chunks
-                    for i in range(0, len(ids), max_seq_length - 1):
-                        chunk = ids[i:i + max_seq_length - 1]
+        #         # Chunk the sequence if it's too long
+        #         if len(ids) > max_seq_length - 1: # To leave space for EOS
+        #             num_chunked += 1
+        #             print("found chunk")
+        #             # Split into chunks
+        #             for i in range(0, len(ids), max_seq_length - 1):
+        #                 chunk = ids[i:i + max_seq_length - 1]
 
-                        # Only add EOS to the LAST chunk of this document
-                        if i + max_seq_length - 1 >= len(ids):
-                            chunk.append(tokenizer.eos_token_id)
+        #                 # Only add EOS to the LAST chunk of this document
+        #                 if i + max_seq_length - 1 >= len(ids):
+        #                     chunk.append(tokenizer.eos_token_id)
 
-                        self.token_ids.append(chunk)
-                else:
-                    # Short sequence - just add EOS at the end
-                    ids.append(tokenizer.eos_token_id)
-                    self.token_ids.append(ids)
+        #                 self.token_ids.append(chunk)
+        #         else:
+        #             # Short sequence - just add EOS at the end
+        #             ids.append(tokenizer.eos_token_id)
+        #             self.token_ids.append(ids)
 
-            # Print sequence length statistics
-            seq_lengths = [len(seq) for seq in self.token_ids]
-            print(f"\n{'='*60}")
-            print("SEQUENCE LENGTH STATISTICS")
-            print(f"{'='*60}")
-            print(f"Original documents: {len(training_data)}")
-            print(f"Documents chunked: {num_chunked} ({num_chunked/len(training_data)*100:.1f}%)")
-            print(f"Total sequences (after chunking): {len(seq_lengths)}")
-            print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
-            print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
-            print(f"Max length: {max(seq_lengths)} tokens")
-            print(f"Min length: {min(seq_lengths)} tokens")
-            print(f"Sequences > max_seq_length ({max_seq_length}): {sum(1 for l in seq_lengths if l > max_seq_length)} (should be 0)")
-            print(f"{'='*60}\n")
-        else:
-            raise ValueError("Either training_data or pre_chunked_token_ids must be provided")
+        #     # Print sequence length statistics
+        #     seq_lengths = [len(seq) for seq in self.token_ids]
+        #     print(f"\n{'='*60}")
+        #     print("SEQUENCE LENGTH STATISTICS")
+        #     print(f"{'='*60}")
+        #     print(f"Original documents: {len(training_data)}")
+        #     print(f"Documents chunked: {num_chunked} ({num_chunked/len(training_data)*100:.1f}%)")
+        #     print(f"Total sequences (after chunking): {len(seq_lengths)}")
+        #     print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
+        #     print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
+        #     print(f"Max length: {max(seq_lengths)} tokens")
+        #     print(f"Min length: {min(seq_lengths)} tokens")
+        #     print(f"Sequences > max_seq_length ({max_seq_length}): {sum(1 for l in seq_lengths if l > max_seq_length)} (should be 0)")
+        #     print(f"{'='*60}\n")
+        # else:
+        #     raise ValueError("Either training_data or pre_chunked_token_ids must be provided")
 
 
         self.num_blocks = num_blocks
@@ -165,7 +176,7 @@ class Trainer:
         num_blocks = self.num_blocks
 
         # Store tokenizer IDs as static values for JIT compilation
-        padding_token_id = self.tokenizer.padding_token_id
+        padding_token_id = 0
         eos_token_id = self.tokenizer.eos_token_id
 
         @jax.jit
