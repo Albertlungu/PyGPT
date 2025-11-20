@@ -1,6 +1,6 @@
 *.xml
 *jax_training*
-training_logs
+training_logs/*.pkl
 
 **/*.pyc
 tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242
