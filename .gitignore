@@ -1,9 +1,9 @@
 *.xml
 *jax_training*
 training_logs/*.pkl
+artifacts/training_logs/alpaca284*.pkl
 
 **/*.pyc
-tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242
 
 venv
 
@@ -14,3 +14,4 @@ venv
 **.vscode/
 
 *.VSCodeCounter
+alpaca284*.pkl

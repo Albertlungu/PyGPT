@@ -88,10 +88,9 @@ def train():
     train_time = time.time()
 
     # Train with automatic checkpointing
-    # FAST TEST CONFIGURATION
     trainer.train(
-        epochs=100,       # Reduced from 10 to 2 epochs
-        batch_size=16,  
+        epochs=3,       # Reduced from 10 to 2 epochs
+        batch_size=8,  
         checkpoint_path="artifacts/training_logs/alpaca284.pkl",
         save_every=1    # Save every 2 epochs
     )
@@ -148,9 +147,9 @@ def main():
     """Load a trained model and generate text."""
 
     print("Loading tokenizer...")
-    tokenizer = TikToken()
-    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
-
+    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
     # Create trainer with same architecture as checkpoint
     dummy_input = ["dummy"]
     trainer = Trainer(
@@ -159,12 +158,12 @@ def main():
         lr=5e-4,
         num_blocks=4,  # Must match checkpoint!
         num_heads=4,   # Must match checkpoint!
-        embedding_dim=128  # Must match checkpoint!
+        embedding_dim=256  # Must match checkpoint!
     )
 
     # Use model-only checkpoint for faster loading (or fall back to full checkpoint)
     model_only_path = "artifacts/models/alpaca200_model_only.pkl"
-    full_checkpoint_path = "artifacts/training_logs/alpaca_50k_training_logs_35epochs.pkl"
+    full_checkpoint_path = "artifacts/training_logs/alpaca284_2025-11-20_18-26-21.pkl"
 
     # Try model-only first (smaller, faster)
     import os

@@ -73,70 +73,6 @@ class Trainer:
                 self.token_ids.append(ids)
 
         self.token_ids = token_ids
-
-        
-
-        # Use pre-chunked data if provided, otherwise chunk raw text
-        # if pre_chunked_token_ids is not None:
-        #     print("Using pre-chunked token sequences from data loader")
-        #     self.token_ids = pre_chunked_token_ids
-
-        #     # Print sequence length statistics
-        #     seq_lengths = [len(seq) for seq in self.token_ids]
-        #     print(f"\n{'='*60}")
-        #     print("TRAINING DATA - SEQUENCE LENGTH STATISTICS")
-        #     print(f"{'='*60}")
-        #     print(f"Total sequences: {len(seq_lengths)}")
-        #     print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
-        #     print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
-        #     print(f"Max length: {max(seq_lengths)} tokens")
-        #     print(f"Min length: {min(seq_lengths)} tokens")
-        #     print(f"{'='*60}\n")
-        # elif training_data is not None:
-        #     print("Processing raw text data with chunking at training level")
-        #     self.token_ids = []
-
-        #     # Process training data with proper chunking (legacy behavior)
-        #     num_chunked = 0
-        #     for text in training_data:
-        #         ids = tokenizer.encode(text)
-
-        #         # Chunk the sequence if it's too long
-        #         if len(ids) > max_seq_length - 1: # To leave space for EOS
-        #             num_chunked += 1
-        #             print("found chunk")
-        #             # Split into chunks
-        #             for i in range(0, len(ids), max_seq_length - 1):
-        #                 chunk = ids[i:i + max_seq_length - 1]
-
-        #                 # Only add EOS to the LAST chunk of this document
-        #                 if i + max_seq_length - 1 >= len(ids):
-        #                     chunk.append(tokenizer.eos_token_id)
-
-        #                 self.token_ids.append(chunk)
-        #         else:
-        #             # Short sequence - just add EOS at the end
-        #             ids.append(tokenizer.eos_token_id)
-        #             self.token_ids.append(ids)
-
-        #     # Print sequence length statistics
-        #     seq_lengths = [len(seq) for seq in self.token_ids]
-        #     print(f"\n{'='*60}")
-        #     print("SEQUENCE LENGTH STATISTICS")
-        #     print(f"{'='*60}")
-        #     print(f"Original documents: {len(training_data)}")
-        #     print(f"Documents chunked: {num_chunked} ({num_chunked/len(training_data)*100:.1f}%)")
-        #     print(f"Total sequences (after chunking): {len(seq_lengths)}")
-        #     print(f"Average length: {sum(seq_lengths)/len(seq_lengths):.1f} tokens")
-        #     print(f"Median length: {sorted(seq_lengths)[len(seq_lengths)//2]} tokens")
-        #     print(f"Max length: {max(seq_lengths)} tokens")
-        #     print(f"Min length: {min(seq_lengths)} tokens")
-        #     print(f"Sequences > max_seq_length ({max_seq_length}): {sum(1 for l in seq_lengths if l > max_seq_length)} (should be 0)")
-        #     print(f"{'='*60}\n")
-        # else:
-        #     raise ValueError("Either training_data or pre_chunked_token_ids must be provided")
-
-
         self.num_blocks = num_blocks
         self.num_heads = num_heads
         self.transformer_stack = TransformerStack(
@@ -164,6 +100,39 @@ class Trainer:
         initial_params = self._flatten_params()
         self._adam_m = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
         self._adam_v = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
+
+        @staticmethod
+        @jax.jit
+        def fwd_jit(embed_params, stack_params, output_params, token_ids, num_heads, head_dim, embedding_dim):
+            """
+            Forward pass through entire model using JAX.
+
+            Args:
+                token_ids (jnp.ndarray): Token IDs, shape (batch, seq_len)
+
+            Returns:
+                tuple: (transformer_out, logits)
+            """
+            embeddings, _ = EmbeddingLayer.embedding_fwd(
+                embed_params,
+                token_ids
+            )
+            current = embeddings
+
+            for i in range(len(stack_params)):
+                block_params = stack_params[i]
+                current = TransformerBlock.fwd(
+                    block_params,
+                    current,
+                    num_heads,
+                    head_dim,
+                    embedding_dim
+                )
+
+            logits = OutputLayer.fwd(output_params, current)
+
+            return current, logits
+        self._fwd = fwd_jit
 
     def _create_jit_loss_fn(self):
         """
@@ -339,27 +308,8 @@ class Trainer:
         self.output_layer.W_out = output_dict['W_out']
         self.output_layer.b_out = output_dict['b_out']
 
-    @functools.partial(jax.jit, static_argnums=())
-    def fwd(self, token_ids):
-        """
-        Forward pass through entire model using JAX.
-
-        Args:
-            token_ids (jnp.ndarray): Token IDs, shape (batch, seq_len)
-
-        Returns:
-            tuple: (transformer_out, logits)
-        """
-        embeddings, mask = EmbeddingLayer.embedding_fwd(
-            self.embedding_layer.get_params(),
-            token_ids
-        )
-        transformer_out = self.transformer_stack.fwd(embeddings)
-
-        output_params = self.output_layer.get_params()
-        logits = OutputLayer.fwd(output_params, transformer_out)
-
-        return transformer_out, logits
+    def fwd(self, *args, **kwargs):
+        return self._fwd(*args, **kwargs)
 
     def compute_loss_and_grads(self, token_ids, targets):
         """
@@ -817,7 +767,15 @@ class Trainer:
                 batch_token_ids = jnp.array([token_ids], dtype=jnp.int32)
 
                 # Forward pass
-                transformer_out, logits = self.fwd(batch_token_ids)
+                transformer_out, logits = self.fwd(
+                    embed_params,
+                    stack_params,
+                    output_params,
+                    batch_token_ids,
+                    self.num_heads,
+                    self.embedding_layer.embedding_dim // self.num_heads,
+                    self.embedding_layer.embedding_dim
+                )
 
                 # Get logits for last token (keep as float32 for numerical stability)
                 next_logits = logits[0, -1] / temperature
