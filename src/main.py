@@ -68,10 +68,10 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         token_ids=token_ids,
-        lr=1e-4,  # Slightly higher base LR with schedule
-        num_blocks=4,
-        num_heads=4,
-        embedding_dim=256,  # Must be divisible by num_heads
+        lr=5e-3,  # Slightly higher base LR with schedule
+        num_blocks=8,
+        num_heads=8,
+        embedding_dim=512,  # Must be divisible by num_heads
         max_seq_length=256,  # Chunk long sequences to avoid memory issues
         use_lr_schedule=True,  # Enable warmup + cosine decay
         warmup_steps=500  # Warmup for first 500 steps
@@ -89,7 +89,7 @@ def train():
 
     # Train with automatic checkpointing
     trainer.train(
-        epochs=3,       # Reduced from 10 to 2 epochs
+        epochs=10,       # Reduced from 10 to 2 epochs
         batch_size=8,  
         checkpoint_path="artifacts/training_logs/alpaca284.pkl",
         save_every=1    # Save every 2 epochs
