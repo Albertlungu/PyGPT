@@ -428,7 +428,7 @@ class Trainer:
         print(f"Checkpoints will be saved to: {timestamped_checkpoint}")
 
         # print(f"Creating batches with batch_size={batch_size}...")
-        batches = self.create_batches(batch_size)
+        batches = self.create_batches(self.token_ids, batch_size)
         # print(f"Created {len(batches)} batches")
 
         # Configure learning rate schedule if enabled
@@ -782,7 +782,10 @@ class Trainer:
                     embed_params,
                     stack_params,
                     output_params,
-                    batch_token_ids
+                    batch_token_ids,
+                    self.num_heads,
+                    self.embedding_layer.embedding_dim // self.num_heads,
+                    self.embedding_layer.embedding_dim
                 )
 
                 # Get logits for last token (keep as float32 for numerical stability)
@@ -862,18 +865,66 @@ class Trainer:
             print(f"Generated token IDs: {generated_token_ids[:20]}...")
             return "[Generation failed - invalid tokens produced]"
 
-    def create_batches(self, batch_size=100):
+    @staticmethod
+    def create_batches(token_ids, batch_size=100, bucket_boundaries=None, shuffle_batches=True):
         """Create padded batches."""
-        batches = []
-        for i in range(0, len(self.token_ids), batch_size):
-            batch = self.token_ids[i:i+batch_size]
-            max_len = max(len(seq) for seq in batch)
-            padded_batches = [
-                seq + [0] * (max_len - len(seq))
-                for seq in batch
-            ]
-            batches.append(np.array(padded_batches))
-        return batches
+        import random
+
+        bucket_boundaries = [128, 256, 384, 512, 768] if bucket_boundaries is None else bucket_boundaries
+        bucket_boundaries = sorted(bucket_boundaries)
+        max_allowed_len = max(bucket_boundaries)
+        
+        buckets = {boundary: [] for boundary in bucket_boundaries}
+
+        truncated_count = 0
+        for seq in token_ids:
+            seq_len = len(seq)
+
+            if seq_len > max_allowed_len:
+                seq = seq_len[:max_allowed_len]
+                seq_len = max_allowed_len
+                truncated_count += 1
+            
+            for boundary in bucket_boundaries:
+                if seq_len <= boundary:
+                    buckets[boundary].append(seq)
+                    break
+
+            if truncated_count > 0:
+                print(f"Truncated {truncated_count} sequences to {max_allowed_len} tokens")
+            
+            batches = []
+
+            for boundary in bucket_boundaries:
+                bucket_seqs = buckets[boundary]
+                if not bucket_seqs:
+                    continue
+                
+                for i in range(0, len(bucket_seqs), batch_size):
+                    batch = bucket_seqs[i:i + batch_size]
+
+                    padded_batch = [
+                        seq + [0] * (boundary - len(seq))
+                        for seq in batch
+                    ]
+                    batches.append(jnp.array(padded_batch, dtype=jnp.int32))
+            
+            if shuffle_batches:
+                random.shuffle(batches)
+
+            return batches
+            # for i in range(0, len(token_ids), batch_size):
+            #     batch = token_ids[i:i+batch_size]
+            #     max_len = max(len(seq) for seq in batch)
+            #     padded_batches = [
+            #         seq + [0] * (max_len - len(seq))
+            #         for seq in batch
+            #     ]
+            #     batches.append(jnp.array(padded_batches))
+
+
+            # return batches
+
     
     def extend_training(self, checkpoint_path, epochs=10, batch_size=20, save_every=5):
         print(f"Loading checkpoint from {checkpoint_path}...")
