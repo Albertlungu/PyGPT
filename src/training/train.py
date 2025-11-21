@@ -101,9 +101,13 @@ class Trainer:
         self._adam_m = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
         self._adam_v = tree.tree_map(lambda p: jnp.zeros_like(p), initial_params)
 
-        @staticmethod
+        # Capture static values so JAX treats them as concrete during tracing
+        num_heads = self.num_heads
+        head_dim = self.embedding_layer.embedding_dim // self.num_heads
+        embedding_dim = self.embedding_layer.embedding_dim
+
         @jax.jit
-        def fwd_jit(embed_params, stack_params, output_params, token_ids, num_heads, head_dim, embedding_dim):
+        def fwd_jit(embed_params, stack_params, output_params, token_ids):
             """
             Forward pass through entire model using JAX.
 
@@ -119,19 +123,26 @@ class Trainer:
             )
             current = embeddings
 
+
+            # Use the closed-over static values
+            num_heads_local = num_heads
+            head_dim_local = head_dim
+            embedding_dim_local = embedding_dim
+
             for i in range(len(stack_params)):
                 block_params = stack_params[i]
                 current = TransformerBlock.fwd(
                     block_params,
                     current,
-                    num_heads,
-                    head_dim,
-                    embedding_dim
+                    num_heads_local,
+                    head_dim_local,
+                    embedding_dim_local
                 )
 
             logits = OutputLayer.fwd(output_params, current)
 
             return current, logits
+        # Create a bound wrapper (no-op wrapper — fwd_jit already closes over static values)
         self._fwd = fwd_jit
 
     def _create_jit_loss_fn(self):
@@ -771,10 +782,7 @@ class Trainer:
                     embed_params,
                     stack_params,
                     output_params,
-                    batch_token_ids,
-                    self.num_heads,
-                    self.embedding_layer.embedding_dim // self.num_heads,
-                    self.embedding_layer.embedding_dim
+                    batch_token_ids
                 )
 
                 # Get logits for last token (keep as float32 for numerical stability)
