@@ -412,7 +412,7 @@ class Trainer:
 
         return timestamped_path
 
-    def train(self, epochs=10, batch_size=20, checkpoint_path="artifacts/training_logs/training_logs.pkl", save_every=10):
+    def train(self, epochs=10, batch_size=20, checkpoint_path="artifacts/training_logs/training_logs.pkl", save_every=10, prompt=""):
         """
         Train the model with JAX autodiff.
         Automatically saves checkpoints with timestamps.
@@ -501,6 +501,15 @@ class Trainer:
                     self.save_checkpoint(timestamped_checkpoint)
 
                 gc.collect()
+
+                if prompt and (epoch + 1) % 5: # Run generate every 5 epochs - avoids 100s delay every epoch.
+                    generated_text = self.generate(
+                        prompt,
+                        max_length=150,
+                    )
+
+                    print("Prompt: \n", prompt)
+                    print("Generated: ", generated_text[0])
 
         except KeyboardInterrupt:
             print("\n\nTraining interrupted by user!")
@@ -862,18 +871,34 @@ class Trainer:
             print(f"Generated token IDs: {generated_token_ids[:20]}...")
             return "[Generation failed - invalid tokens produced]"
 
+    # def create_batches(self, batch_size=100):
+    #     """Create padded batches."""
+    #     batches = []
+    #     for i in range(0, len(self.token_ids), batch_size):
+    #         batch = self.token_ids[i:i+batch_size]
+    #         max_len = max(len(seq) for seq in batch)
+    #         padded_batches = [
+    #             seq + [0] * (max_len - len(seq))
+    #             for seq in batch
+    #         ]
+    #         batches.append(np.array(padded_batches))
+    #     return batches
+    
     def create_batches(self, batch_size=100):
         """Create padded batches."""
+        fixed_len = self.max_seq_length
         batches = []
         for i in range(0, len(self.token_ids), batch_size):
             batch = self.token_ids[i:i+batch_size]
-            max_len = max(len(seq) for seq in batch)
-            padded_batches = [
-                seq + [0] * (max_len - len(seq))
-                for seq in batch
-            ]
+            padded_batches = []
+            # max_len = max(len(seq) for seq in batch)
+            for seq in batch:
+                if len(seq) > fixed_len:
+                    seq = seq[:fixed_len]
+                padded_batches.append(seq + [0] * (fixed_len - len(seq)))
             batches.append(np.array(padded_batches))
         return batches
+        
     
     def extend_training(self, checkpoint_path, epochs=10, batch_size=20, save_every=5):
         print(f"Loading checkpoint from {checkpoint_path}...")

@@ -92,7 +92,8 @@ def train():
         epochs=3,       # Reduced from 10 to 2 epochs
         batch_size=8,  
         checkpoint_path="artifacts/training_logs/alpaca284.pkl",
-        save_every=1    # Save every 2 epochs
+        save_every=1,
+        prompt="Instruction: List three best practices for starting a conversation.\nInput: \nOutput:"    # Save every 2 epochs
     )
 
     end_train = time.time() - train_time
@@ -156,14 +157,14 @@ def main():
         tokenizer,
         dummy_input,
         lr=5e-4,
-        num_blocks=4,  # Must match checkpoint!
-        num_heads=4,   # Must match checkpoint!
-        embedding_dim=256  # Must match checkpoint!
+        num_blocks=2,  # Must match checkpoint!
+        num_heads=2,   # Must match checkpoint!
+        embedding_dim=128  # Must match checkpoint!
     )
 
     # Use model-only checkpoint for faster loading (or fall back to full checkpoint)
     model_only_path = "artifacts/models/alpaca200_model_only.pkl"
-    full_checkpoint_path = "artifacts/training_logs/alpaca284_2025-11-20_18-26-21.pkl"
+    full_checkpoint_path = "artifacts/training_logs/alpaca284_2025-11-22_19-53-01.pkl"
 
     # Try model-only first (smaller, faster)
     import os
@@ -203,7 +204,7 @@ def main():
         generated_text = trainer.generate(
             prompt,
             max_length=150,
-            temperature=0.5,
+            temperature=10,
             top_k=30,
             repetition_penalty=1.5,
             debug=False
