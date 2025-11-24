@@ -507,6 +507,8 @@ class Trainer:
                         prompt,
                         max_length=150,
                     )
+                    print(f"Saving checkpoint at epoch {epoch +1}")
+                    self.save_checkpoint(f"artifacts/training_logs/alpaca_epoch{epoch + 1}")
 
                     print("Prompt: \n", prompt)
                     print("Generated: ", generated_text[0])
@@ -728,7 +730,7 @@ class Trainer:
             block.gamma_2 = block_params['gamma_2']
             block.beta_2 = block_params['beta_2']
 
-        self.output_layer.W_out = checkpoint['output']['W_out']
+        self.output_layer.W_out = self.embedding_layer.embeddings.T
         self.output_layer.b_out = checkpoint['output']['b_out']
 
         # Restore optimizer state
