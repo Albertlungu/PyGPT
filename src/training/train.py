@@ -502,7 +502,7 @@ class Trainer:
 
                 gc.collect()
 
-                if prompt and (epoch + 1) % 5: # Run generate every 5 epochs - avoids 100s delay every epoch.
+                if prompt and (epoch + 1) % 5 == 0: # Run generate every 5 epochs - avoids 100s delay every epoch.
                     generated_text = self.generate(
                         prompt,
                         max_length=150,

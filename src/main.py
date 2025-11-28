@@ -68,7 +68,7 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         token_ids=token_ids,
-        lr=1e-4,  # Slightly higher base LR with schedule
+        lr=5e-4,  # Slightly higher base LR with schedule
         num_blocks=4,
         num_heads=4,
         embedding_dim=256,  # Must be divisible by num_heads
@@ -89,8 +89,8 @@ def train():
 
     # Train with automatic checkpointing
     trainer.train(
-        epochs=3,       # Reduced from 10 to 2 epochs
-        batch_size=8,  
+        epochs=20,       # Reduced from 10 to 2 epochs
+        batch_size=32,  
         checkpoint_path="artifacts/training_logs/alpaca284.pkl",
         save_every=1,
         prompt="Instruction: List three best practices for starting a conversation.\nInput: \nOutput:"    # Save every 2 epochs

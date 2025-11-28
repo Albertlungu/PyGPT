@@ -23,3 +23,10 @@ print(tokenizer.encode(prompts))
 print(tokenizer.eos_token_id)
 print(tokenizer.decode([32000]))
 print(tokenizer.decode([0]))
+
+
+with open('training_data/alpaca_tokenized.pkl', 'rb') as f:
+    data = pickle.load(f)
+
+print(data[-1])
+print(tokenizer.decode(data[0]))
