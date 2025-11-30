@@ -135,7 +135,7 @@ class MultiHeadAttention:
             V = V_new
 
         total_seq_len = K.shape[2] # Past seq len + new seq len
-        scores = Q @ K.transpose(0, 1, 2, 3) / jnp.sqrt(head_dim)
+        scores = Q @ K.transpose(0, 1, 3, 2) / jnp.sqrt(head_dim)
 
         mask = jnp.ones((new_seq_len, total_seq_len))
         if new_seq_len > 1:
