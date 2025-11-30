@@ -66,7 +66,7 @@ def save_alpaca(path):
     with open(path, "w", encoding="utf-8") as f:
         for idx, ex in enumerate(ds):
             text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
-            f.write(text + "\n")
+            f.write(text + "\n\n")
 
             if (idx + 1) % 1000 == 0:
                     print(f"Processed {idx + 1}/{len(ds)} examples")
@@ -99,6 +99,22 @@ def save_trivia_qa(path):
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
+def save_flan(path, ds_len):
+    ds = load_dataset("Open-Orca/FLAN")
+
+def save_general_instruct(path, ds_len):
+    ds = load_dataset("teknium/GPTeacher-General-Instruct")['train']
+    ds = ds.select(range(ds_len)) if ds_len > 0 else ds
+
+    with open(path, "w", encoding='utf-8') as f:
+        for idx, ex in enumerate(ds):
+            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['response']}\n"
+            f.write(text + "\n\n")
+
+            if (idx + 1) % 1000 == 0:
+                print(f"Processed {idx+1}/{ds_len} examples")
+
+    print(f"Successfully saved {len(ds)} examples to {path}")
 
 def load_text_file(path):
     """
@@ -123,3 +139,4 @@ if __name__ == "__main__":
     # save_general_knowledge("training_data/general_knowledge.txt")
     save_alpaca("training_data/alpaca.txt")
     # save_trivia_qa("training_data/trivia.txt")
+    pass
