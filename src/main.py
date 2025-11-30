@@ -8,11 +8,11 @@ import time
 import pickle
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from datasets import load_dataset
+# from datasets import load_dataset
 
 import src.utils.config
 from embeddings.embeddings import EmbeddingLayer
-from tokenizer.pre_tokenizer import TikToken
+from src.tokenizer.tiktoken_tokenizer import TikToken
 from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
@@ -45,21 +45,23 @@ def train():
 
     print("This code is running.")
     # Load tokenizer - using TikToken
-    # tokenizer = TikToken()
-    # print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
+    tokenizer = TikToken()
+    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
 
-    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+    # with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
+    #     tokenizer = pickle.load(f)
+    #     tokenizer._ensure_vocab()
 
     with open("training_data/alpaca.txt", "r") as f:
         content = f.read()
 
     # Split by double newlines to get complete instruction-response pairs
     training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
-
-    with open("training_data/alpaca_tokenized.pkl", "rb") as f:
+    with open("training_data/tiktoken_alpaca.pkl", "rb") as f:
         token_ids = pickle.load(f)
+
+    # with open("training_data/alpaca_tokenized.pkl", "rb") as f:
+    #     token_ids = pickle.load(f)
 
     print("="*60)
     print("Appended training texts to list")
@@ -69,9 +71,9 @@ def train():
         tokenizer=tokenizer,
         token_ids=token_ids,
         lr=5e-4,  # Slightly higher base LR with schedule
-        num_blocks=4,
-        num_heads=4,
-        embedding_dim=256,  # Must be divisible by num_heads
+        num_blocks=2,
+        num_heads=2,
+        embedding_dim=128,  # Must be divisible by num_heads
         max_seq_length=256,  # Chunk long sequences to avoid memory issues
         use_lr_schedule=True,  # Enable warmup + cosine decay
         warmup_steps=500  # Warmup for first 500 steps

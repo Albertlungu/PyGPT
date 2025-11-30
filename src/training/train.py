@@ -16,7 +16,7 @@ from src.transformer.transformer_stack import TransformerStack
 from src.transformer.transformer_block import TransformerBlock
 from src.transformer.output_layer import OutputLayer
 from src.training.loss_function import CrossEntropyLoss
-from src.tokenizer.pre_tokenizer import TikToken
+from src.tokenizer.tiktoken_tokenizer import TikToken
 from src.optimizers.adam import AdamNested
 
 
@@ -184,7 +184,7 @@ class Trainer:
                     targets,
                     ignore_index=0,
                     eos_weight=1,  # Reduce EOS importance to prevent early stopping
-                    eos_token_id=32000
+                    eos_token_id=eos_token_id
                 )
                 return loss
 
