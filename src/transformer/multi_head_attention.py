@@ -41,11 +41,13 @@ class MultiHeadAttention:
         key = jax.random.PRNGKey(0)
         k1, k2, k3, k4 = jax.random.split(key, 4)
 
-        scale = jnp.sqrt(1.0 / self.embedding_dim)
+        scale = 0.02
         self.W_Q = jax.random.normal(k1, (self.embedding_dim, self.embedding_dim)) * scale
         self.W_K = jax.random.normal(k2, (self.embedding_dim, self.embedding_dim)) * scale
         self.W_V = jax.random.normal(k3, (self.embedding_dim, self.embedding_dim)) * scale
-        self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * scale
+
+        residual_scale = scale / jnp.sqrt(2.0 * num_heads)
+        self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * residual_scale
 
     @staticmethod
     def fwd(params, x, num_heads, head_dim, embedding_dim):
