@@ -471,6 +471,27 @@ class Trainer:
 
                     # print(f"  Computing loss and gradients (JIT compiling on first batch)...")
                     loss, grads = self.compute_loss_and_grads(input_tokens, target_tokens)
+
+                    grads_pytree = (grads['embeddings'], grads['stack'], grads['output'])
+
+                    global_norm = jnp.sqrt(sum(
+                        jnp.sum(jnp.square(g))
+                        for g in jax.tree_util.tree_leaves(grads_pytree)
+                    ))
+
+                    max_norm = 1.0
+                    clip_coef = jnp.minimum(1.0, max_norm / (global_norm + 1e-6))
+
+                    grads_pytree_clipped = jax.tree_util.tree_map(
+                        lambda g: g * clip_coef,
+                        grads_pytree
+                    )
+
+                    grads = {
+                        'embeddings': grads_pytree_clipped[0],
+                        'stack': grads_pytree_clipped[1],
+                        'output': grads_pytree_clipped[2]
+                    }
                     # print(f"  Loss computed: {float(loss):.4f}")
 
                     # Update parameters (this increments self.optimizer.t)
