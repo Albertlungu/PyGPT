@@ -103,18 +103,28 @@ def save_flan(path, ds_len):
     ds = load_dataset("Open-Orca/FLAN")
 
 def save_general_instruct(path, ds_len):
+    skipped_count = 0
+    saved_count = 0
     ds = load_dataset("teknium/GPTeacher-General-Instruct")['train']
     ds = ds.select(range(ds_len)) if ds_len > 0 else ds
 
     with open(path, "w", encoding='utf-8') as f:
         for idx, ex in enumerate(ds):
-            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['response']}\n"
+            response = ex['response'].strip()
+
+            if not response or response.lower in ['<nooutput>', '<no output>', 'none', '']:
+                skipped_count += 1
+                continue
+
+            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {response}\n"
+            saved_count += 1
             f.write(text + "\n\n")
 
             if (idx + 1) % 1000 == 0:
                 print(f"Processed {idx+1}/{ds_len} examples")
 
-    print(f"Successfully saved {len(ds)} examples to {path}")
+    print(f"Successfully saved {saved_count} examples to {path}")
+    print(f"Skipped {skipped_count} examples")
 
 def load_text_file(path):
     """

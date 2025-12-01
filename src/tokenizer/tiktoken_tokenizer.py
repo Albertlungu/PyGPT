@@ -5,10 +5,14 @@ from tqdm import tqdm
 class TikToken:
     def __init__(self):
         self.enc = tiktoken.get_encoding("r50k_base")
-        self.vocab_size = self.enc.max_token_value + 1  # +1 because max_token_value is 0-indexed
+        original_vocab = self.enc.max_token_value + 1
+        self.vocab_size = 50304  # +1 because max_token_value is 0-indexed
+        self._original_vocab_size = original_vocab
         self.eos_token_id = self.enc.eot_token
         # Use 0 as padding token ID (common convention)
         self.padding_token_id = 0
+        # self.nooutput_token = b"<nooutput>"
+        # self.nooutput_token_ids = self.encode_special(self.nooutput_token)
 
     def encode(self, text):
         """
@@ -21,6 +25,21 @@ class TikToken:
             list: List of token IDs
         """
         return self.enc.encode(text)
+
+    def encode_special(self, special_token):
+        """
+        Method for encoding special tokens
+
+        Args:
+            special_token (bytes): special token bytes
+
+        Returns:
+            list: list of token IDs for the special token
+        """
+
+        if isinstance(special_token, str):
+            special_token = special_token.encode("utf-8")
+        return self.enc.encode_single_token(special_token.decode('utf-8'))
 
     def decode(self, token_ids):
         """
