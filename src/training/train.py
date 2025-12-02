@@ -339,7 +339,7 @@ class Trainer:
 
         # Update output layer
         self.output_layer.W_out = output_dict['W_out']
-        self.output_layer.b_out = output_dict['b_out']
+        # self.output_layer.b_out = output_dict['b_out']
 
         self.final_gamma = final_ln_dict['gamma']
         self.final_beta = final_ln_dict['beta']
@@ -618,7 +618,7 @@ class Trainer:
 
         # Output layer parameters
         param_counts['output'] += self.output_layer.W_out.size
-        param_counts['output'] += self.output_layer.b_out.size
+        # param_counts['output'] += self.output_layer.b_out.size
 
         # Total
         param_counts['total'] = sum(param_counts.values()) - param_counts['total']
@@ -720,7 +720,7 @@ class Trainer:
             'embeddings': np.array(self.embedding_layer.embeddings),
             'positional_encodings': np.array(self.embedding_layer.positional_encodings),
             'output_W': np.array(self.output_layer.W_out),
-            'output_b': np.array(self.output_layer.b_out),
+            # 'output_b': np.array(self.output_layer.b_out),
             'final_ln_gamma': np.array(self.final_gamma),
             'final_ln_beta': np.array(self.final_beta),
         }
@@ -785,7 +785,7 @@ class Trainer:
             block.beta_2 = block_params['beta_2']
 
         self.output_layer.W_out = self.embedding_layer.embeddings.T
-        self.output_layer.b_out = checkpoint['output']['b_out']
+        # self.output_layer.b_out = checkpoint['output']['b_out']
 
         # Load final LayerNorm if it exists
         if 'final_ln' in checkpoint:
