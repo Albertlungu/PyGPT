@@ -1,16 +1,24 @@
+"""
+The trainer function that puts everything together. It runs through the fwd and bwd passes of every
+    other module, going through many epochs to allow the model to better predict tokens.
+"""
+
 import os
-import numpy as np
+import pickle
+import time as t
+import sys
+
+
+from datetime import datetime
+import gc
 import jax
 import jax.numpy as jnp
 import jax.tree_util as tree
-import sys
+import numpy as np
 from tqdm import tqdm
-import time as t
-import gc
-import functools
-from datetime import datetime
+
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-import pickle
 from src.embeddings.embeddings import EmbeddingLayer
 from src.transformer.transformer_stack import TransformerStack
 from src.transformer.transformer_block import TransformerBlock
@@ -642,7 +650,9 @@ class Trainer:
         return param_counts
 
     def print_model_summary(self):
-        """Print a summary of the model architecture and parameter counts."""
+        """
+        Print a summary of the model architecture and parameter counts.
+        """
         counts = self.count_parameters()
 
         print("="*60)
@@ -1029,18 +1039,3 @@ class Trainer:
         )
 
         print(f"Extended training to {new_checkpoint}")
-
-
-
-
-def main():
-    tokenizer = TikToken()
-    print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
-
-    user_input = ["Hello world"]
-    trainer = Trainer(tokenizer, user_input, num_blocks=12, num_heads=12)
-
-    trainer.print_model_summary()
-
-if __name__ == '__main__':
-    main()

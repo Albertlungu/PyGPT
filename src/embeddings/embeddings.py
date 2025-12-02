@@ -9,12 +9,13 @@ Reference:
 https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/
 """
 import os
-import sys
-import xml.etree.ElementTree as ET
 import pickle
-import numpy as np
-import jax
+import sys
+
 import jax.numpy as jnp
+import jax
+import numpy as np
+import xml.etree.ElementTree as ET
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.tokenizer.tokenizer_class import BPETokenizer

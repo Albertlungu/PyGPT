@@ -1,8 +1,26 @@
-import tiktoken
+"""
+Using OpenAI's TikToken library to get a powerful and fast tokenizer for better training runs.
+Although you can use the custom BPE tokenizer, this is faster at the actual tokenization process
+    and has better vocabulary distributions
+"""
+
 import pickle
+
+import tiktoken
 from tqdm import tqdm
 
 class TikToken:
+    """
+    TikToken tokenizer class for ease of use.
+
+    Attributes:
+        enc (encoding): Shorthand for tiktoken.get_encoding to make it easier in future code references
+        original_vocab (int): Original vocab size of tokenizer, before padding
+        vocab_size (int): Padded vocab size to something that is divisible by 64
+        _original_vocab_size (int): Size of the original vocab
+        eos_token_id (int): End of sequence token id
+        padding_token_id (int): Padding token id, set to 0
+    """
     def __init__(self):
         """
         Initializing Tikotken class
@@ -56,7 +74,14 @@ class TikToken:
         """
         return self.enc.decode(token_ids)
 
-def tokenize_data(input_path, output_path):
+def tokenize_data(input_path:str, output_path:str) -> None:
+    """
+    Tokenizes training data
+
+    Args:
+        input_path (str): Path of the non-tokenized .txt dataset file.
+        output_path (str): Output path to which function writes.
+    """
     with open(input_path, "r") as f:
         data = f.read()
 
@@ -75,6 +100,9 @@ def tokenize_data(input_path, output_path):
 
 
 def main():
+    """
+    Main function to test encoding and decoding
+    """
     tokenizer = TikToken()
 
     print(f"Vocab size: {tokenizer.vocab_size}")
@@ -89,7 +117,13 @@ def main():
     decoded = tokenizer.decode(encoded)
     print(f"Decoded: {decoded}")
 
-def test_tokenized(path):
+def test_tokenized(path:str) -> None:
+    """
+    Tests the tokenized dataset to ensure that it looks as it should.
+
+    Args:
+        path (str): Path to the pickled tokenized dataset
+    """
     with open(path, "rb") as f:
         data = pickle.load(f)
 

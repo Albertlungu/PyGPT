@@ -1,7 +1,14 @@
-import numpy as np
-import sys, os
+"""
+Loss function class that calculates loss of the model using Cross Entropy Loss. This shows how wrong
+    the predictions are. The lower the number, the better the model is able to predict.
+"""
+
+import os
+import sys
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 class CrossEntropyLoss:
@@ -36,7 +43,7 @@ class CrossEntropyLoss:
             eos_token_id (int, optional): EOS token ID to apply weight to. Required if eos_weight is specified.
 
         Returns:
-            jnp.float64: Loss of my model I guess
+            jnp.float64: Loss of the model
 
         Raises:
             TypeError

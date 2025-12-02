@@ -1,11 +1,13 @@
-import numpy as np
-import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import xml.etree.ElementTree as ET
+import pickle
+import sys
+
+import numpy as np
 import re
 from tqdm import tqdm
-import pickle
+import xml.etree.ElementTree as ET
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 def extract_wiki_text(xml_path, output_path):
     """
