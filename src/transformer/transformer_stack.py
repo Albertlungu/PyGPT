@@ -17,21 +17,24 @@ class TransformerStack:
         embedding_dim (int): Dimension of embeddings
         num_heads (int): Number of attention heads per block
       """
-    def __init__(self, embedding_layer: EmbeddingLayer, num_blocks=8, num_heads=8):
+    def __init__(self, embedding_layer: EmbeddingLayer, num_blocks=8, num_heads=8, dropout=0.0):
         """
         Initialize stack of transformer blocks.
 
         Args:
             embedding_layer (EmbeddingLayer): Embedding layer instance
-            num_blocks (int): Number of blocks to stack (default: 4)
+            num_blocks (int): Number of blocks to stack (default: 8)
             num_heads (int): Number of attention heads per block (default: 8)
+            dropout (float): Dropout probability (default: 0.0)
         """
         self.num_blocks = num_blocks
         self.embedding_dim = embedding_layer.embedding_dim
         self.num_heads = num_heads
+        self.dropout = dropout
 
+        # Pass num_blocks and dropout to each TransformerBlock
         self.blocks = [
-            TransformerBlock(embedding_layer, num_heads)
+            TransformerBlock(embedding_layer, num_heads, num_blocks, dropout)
             for _ in range(num_blocks)
         ]
     

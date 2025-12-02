@@ -1,5 +1,5 @@
-datasets
+jax[cuda12]
 matplotlib
+tiktoken
+datasets
 numpy
-tqdm
-jax["cuda12"]

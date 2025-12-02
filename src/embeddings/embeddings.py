@@ -26,7 +26,7 @@ class EmbeddingLayer:
 
     default_embedding_dim = 256
 
-    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 256, n = 10000):
+    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 256, n = 10000, dropout=0.0):
         """
         Initializes an EmbeddingLayer object.
 
@@ -34,11 +34,13 @@ class EmbeddingLayer:
             vocab_size (int): the size of the vocabulary. Required.
             embedding_dim (int): the size of the embedding dimension. Optional.
             max_seq_length (int, optional): the maximum sequence length. Defaults to 256. Optional.
+            dropout (float, optional): Dropout probability. Defaults to 0.0. Optional.
         """
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim or self.default_embedding_dim
         self.max_seq_length = max_seq_length
         self.n = n
+        self.dropout = dropout
 
         # Create key inside __init__, not at class level
         self.key = jax.random.PRNGKey(0)
@@ -62,7 +64,7 @@ class EmbeddingLayer:
         
 
     @staticmethod
-    def embedding_fwd(params, padded_token_ids, pad_token_id=None):
+    def embedding_fwd(params, padded_token_ids, pad_token_id=None, dropout=0.0, training=True, rng_key=None):
         # Unpack params - params is now a dict for consistency with other layers
         embeddings = params['embeddings']
         positional_encodings = params['positional_encodings']
@@ -94,6 +96,12 @@ class EmbeddingLayer:
         pos_enc = positional_encodings[pos_indices, :]
 
         output = token_embeddings + pos_enc[None, :, :]
+
+        if training and dropout > 0.0 and rng_key is not None:
+            keep_prob = 1.0 - dropout
+            dropout_mask = jax.random.bernoulli(rng_key, keep_prob, output.shape)
+            output = jnp.where(dropout_mask, output / keep_prob, 0.0)
+            
         return output, mask
     
     # Removed loss_fn method - loss computation is now handled in Trainer

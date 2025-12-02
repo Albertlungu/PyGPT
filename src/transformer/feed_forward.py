@@ -25,7 +25,7 @@ class FeedForward():
     """
     
 
-    def __init__(self, embeddings: EmbeddingLayer, ff_dim = 0):
+    def __init__(self, embeddings: EmbeddingLayer, ff_dim = 0, num_blocks=1, dropout=0.0):
         """
         Initializes the FeedForward network.
 
@@ -45,6 +45,7 @@ class FeedForward():
         # Use the actual embedding dimension from the embeddings instance, not the class default
         self.embedding_dim = embeddings.embedding_dim
         self.ff_dim = ff_dim or self.embedding_dim * 4 # Feed Forward dimension
+        self.dropout = dropout
 
         self.key = jax.random.PRNGKey(0)
 
@@ -53,11 +54,14 @@ class FeedForward():
         self.cross_entropy = CrossEntropyLoss()
         self.loss_fn = self.cross_entropy.fwd
 
-        # Layers 
+        # Layers with proper initialization
         scale = 0.02
-        self.W1 = jax.random.normal(k1, (self.embedding_dim, self.ff_dim)) * scale # Weight first layer of shape (embedding_dim, ff_dim)
-        self.B1 = jnp.zeros(self.ff_dim)# Bias first layer
-        self.W2 = jax.random.normal(k2, (self.ff_dim, self.embedding_dim)) * scale # Weight second layer of shape (ff_dim, embedding_dim)
+        self.W1 = jax.random.normal(k1, (self.embedding_dim, self.ff_dim)) * scale # Weight first layer
+        self.B1 = jnp.zeros(self.ff_dim) # Bias first layer
+
+        # W2 is a residual projection, scale by depth
+        residual_scale = scale / jnp.sqrt(2.0 * num_blocks)
+        self.W2 = jax.random.normal(k2, (self.ff_dim, self.embedding_dim)) * residual_scale # Weight second layer with residual scaling
         self.B2 = jnp.zeros(self.embedding_dim) # Bias second layer
             
     @staticmethod
@@ -86,7 +90,7 @@ class FeedForward():
         return jnp.maximum(0, x)
 
     @staticmethod
-    def fwd(params, x):
+    def fwd(params, x, dropout=0.0, training=True, rng_key=None):
         """
         Static forward pass for use in JAX autodiff (called from TransformerBlock.fwd).
 
@@ -100,6 +104,12 @@ class FeedForward():
         hidden = x @ params['W1'] + params['B1']
         activated = FeedForward.GELU(hidden)
         output = activated @ params['W2'] + params['B2']
+
+        if training and dropout > 0.0 and rng_key is not None:
+            keep_prob = 1.0 - dropout
+            dropout_mask = jax.random.bernoulli(rng_key, keep_prob, output.shape)
+            output = jnp.where(dropout_mask, output / keep_prob, 0.0)
+            
         return output
 
     @jax.jit

@@ -70,11 +70,12 @@ def train():
     trainer = Trainer(
         tokenizer=tokenizer,
         token_ids=token_ids,
-        lr=5e-4,  # Slightly higher base LR with schedule
+        lr=6e-4,  # Slightly higher base LR with schedule
         num_blocks=2,
         num_heads=2,
         embedding_dim=128,  # Must be divisible by num_heads
         max_seq_length=256,  # Chunk long sequences to avoid memory issues
+        dropout=0.0,
         use_lr_schedule=True,  # Enable warmup + cosine decay
         warmup_steps=500  # Warmup for first 500 steps
     )

@@ -25,7 +25,7 @@ class MultiHeadAttention:
           W_O (jnp.ndarray): Output projection matrix, shape (embedding_dim, embedding_dim)
 
       """
-    def __init__(self, embedding_layer: EmbeddingLayer, num_heads=8):
+    def __init__(self, embedding_layer: EmbeddingLayer, num_heads=8, num_blocks=1, dropout=0.0):
         """
         Initializing MutliHeadAttention
 
@@ -37,6 +37,7 @@ class MultiHeadAttention:
         
         self.num_heads = num_heads
         self.head_dim = self.embedding_dim // self.num_heads
+        self.dropout = dropout
 
         key = jax.random.PRNGKey(0)
         k1, k2, k3, k4 = jax.random.split(key, 4)
@@ -46,17 +47,23 @@ class MultiHeadAttention:
         self.W_K = jax.random.normal(k2, (self.embedding_dim, self.embedding_dim)) * scale
         self.W_V = jax.random.normal(k3, (self.embedding_dim, self.embedding_dim)) * scale
 
-        residual_scale = scale / jnp.sqrt(2.0 * num_heads)
+        residual_scale = scale / jnp.sqrt(2.0 * num_blocks)
         self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * residual_scale
 
     @staticmethod
-    def fwd(params, x, num_heads, head_dim, embedding_dim):
+    def fwd(params, x, num_heads, head_dim, embedding_dim, dropout=0.0, training=True, rng_key=None):
         """
         Pure function for jit computation
 
         Args:
-            params (dict): dict with W_Q, W_K, W_V, W_O
-            x (jnp.ndarray): Input embeddings (shape: batch, seq_len, embedding_dim)
+          params (dict): dict with W_Q, W_K, W_V, W_O
+          x (jnp.ndarray): Input embeddings (shape: batch, seq_len, embedding_dim)
+          num_heads (int): Number of attention heads
+          head_dim (int): Dimension per head
+          embedding_dim (int): Embedding dimension
+          dropout (float): Dropout probability
+          training (bool): Whether in training mode
+          rng_key (jax.random.PRNGKey): Random key for dropout
 
         Return:
             jnp.ndarray: Final output in embeddings
@@ -87,6 +94,12 @@ class MultiHeadAttention:
 
         # Softmax to find weights
         attn_weights = jax.nn.softmax(scores, axis=-1) # See readme for what axis=-1 is
+
+        if training and dropout > 0.0 and rng_key is not None:
+            keep_prob = 1.0 - dropout
+            dropout_mask = jax.random.bernoulli(rng_key, keep_prob, attn_weights.shape)
+            attn_weights = jnp.where(dropout_mask, attn_weights / keep_prob, 0.0)
+            
 
         # Apply attention to values
         attn_output = attn_weights @ V

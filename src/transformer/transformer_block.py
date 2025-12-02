@@ -25,7 +25,7 @@ class TransformerBlock:
         attention_output: Output from the attention layer.
     """
     
-    def __init__(self, embedding_layer: EmbeddingLayer, num_heads = 8):
+    def __init__(self, embedding_layer: EmbeddingLayer, num_heads = 8, num_blocks=1, dropout=0.0):
         """
         Initializing instance variables for the TransformerBlock class
 
@@ -40,8 +40,8 @@ class TransformerBlock:
         self.embedding_dim = embedding_layer.embedding_dim
         self.num_heads = num_heads
 
-        self.attention_layer = MultiHeadAttention(embedding_layer, num_heads)
-        self.ffn = FeedForward(embedding_layer)
+        self.attention_layer = MultiHeadAttention(embedding_layer, num_heads, num_blocks, dropout)
+        self.ffn = FeedForward(embedding_layer, num_blocks=num_blocks, dropout=dropout)
 
         self.gamma_1 = jnp.ones((self.embedding_dim,))
         self.beta_1 = jnp.zeros((self.embedding_dim,))
@@ -73,7 +73,7 @@ class TransformerBlock:
         return output
     
     @staticmethod
-    def fwd(params, x, num_heads, head_dim, embedding_dim):
+    def fwd(params, x, num_heads, head_dim, embedding_dim, dropout=0.0, training=True, rng_key=None):
         """
         Forward pass through transformer block (pure function for JIT).
 
@@ -96,6 +96,11 @@ class TransformerBlock:
             jnp.ndarray: Output (batch, seq_len, embedding_dim)
           """
 
+        if rng_key is not None:
+            rng_attn, rng_ffn = jax.random.split(rng_key)
+        else:
+            rng_attn, rng_ffn = None, None
+
         # ==== Sublayer 1 ====
         residual_1 = x
         ln1_out = TransformerBlock.layer_norm(x, params['gamma_1'], params['beta_1'])
@@ -105,8 +110,18 @@ class TransformerBlock:
             ln1_out,
             num_heads,
             head_dim,
-            embedding_dim
+            embedding_dim,
+            dropout=dropout,
+            training=training,
+            rng_key=rng_attn
         )
+
+        # Residual dropout on attention output
+        if training and dropout > 0.0 and rng_attn is not None:
+            keep_prob = 1.0 - dropout
+            dropout_mask = jax.random.bernoulli(rng_attn, keep_prob, attn_output.shape)
+            attn_output = jnp.where(dropout_mask, attn_output / keep_prob, 0.0)
+
         after_attention = residual_1 + attn_output
 
         # ==== Sublayer 2 ====
@@ -117,7 +132,13 @@ class TransformerBlock:
             params['beta_2']
         )
 
-        ff_output = FeedForward.fwd(params['ffn'], ln2_out)
+        ff_output = FeedForward.fwd(
+            params['ffn'],
+            ln2_out,
+            dropout=dropout,
+            training=training,
+            rng_key=rng_ffn
+        )
         final_output = residual_2 + ff_output
 
         return final_output

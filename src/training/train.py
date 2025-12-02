@@ -34,7 +34,7 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500):
+    def __init__(self, tokenizer, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500, dropout=0.0):
         """
         Initialize Trainer with model architecture.
 
@@ -48,12 +48,14 @@ class Trainer:
             max_seq_length (int): Maximum sequence length for chunking (default: 256)
             use_lr_schedule (bool): Whether to use learning rate warmup and cosine decay (default: True)
             warmup_steps (int): Number of warmup steps (default: 500)
+            dropout (float): Dropout probability (default: 0.0)
         """
         self.tokenizer = tokenizer
         self.max_seq_length = max_seq_length
         self.embedding_dim = embedding_dim
         self.use_lr_schedule = use_lr_schedule
         self.warmup_steps = warmup_steps
+        self.dropout = dropout
 
         # Validate that embedding_dim is divisible by num_heads
         if embedding_dim % num_heads != 0:
@@ -62,7 +64,8 @@ class Trainer:
         self.embedding_layer = EmbeddingLayer(
             vocab_size=tokenizer.vocab_size,
             embedding_dim=embedding_dim,
-            max_seq_length=max_seq_length
+            max_seq_length=max_seq_length,
+            dropout=dropout
         )
 
         if token_ids and training_data is not None:
@@ -78,16 +81,20 @@ class Trainer:
         self.transformer_stack = TransformerStack(
             self.embedding_layer,
             num_blocks=num_blocks,
-            num_heads=num_heads
+            num_heads=num_heads,
+            dropout=dropout
         )
 
         self.output_layer = OutputLayer(self.embedding_layer)
         self.loss_fn = CrossEntropyLoss()
 
+        self.final_gamma = jnp.ones(embedding_dim)
+        self.final_beta = jnp.zeros(embedding_dim)
+
         self.lr = lr
 
-        # Initialize Adam optimizer (schedule will be set in train() when we know total steps)
-        self.optimizer = AdamNested(lr=lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
+        # Initialize Adam optimizer with beta2=0.95 (nanoGPT value for better LLM training)
+        self.optimizer = AdamNested(lr=lr, beta1=0.9, beta2=0.95, epsilon=1e-8)
 
         # Create JIT-compiled loss and gradient function
         self._compiled_loss_and_grad = self._create_jit_loss_fn()
@@ -107,12 +114,13 @@ class Trainer:
         embedding_dim = self.embedding_layer.embedding_dim
 
         @jax.jit
-        def fwd_jit(embed_params, stack_params, output_params, token_ids):
+        def fwd_jit(embed_params, stack_params, output_params, final_ln_params, token_ids):
             """
             Forward pass through entire model using JAX.
 
             Args:
                 token_ids (jnp.ndarray): Token IDs, shape (batch, seq_len)
+                final_ln_params: Final LayerNorm parameters
 
             Returns:
                 tuple: (transformer_out, logits)
@@ -122,7 +130,6 @@ class Trainer:
                 token_ids
             )
             current = embeddings
-
 
             # Use the closed-over static values
             num_heads_local = num_heads
@@ -138,6 +145,13 @@ class Trainer:
                     head_dim_local,
                     embedding_dim_local
                 )
+
+            # Apply final LayerNorm after all transformer blocks
+            current = TransformerBlock.layer_norm(
+                current,
+                final_ln_params['gamma'],
+                final_ln_params['beta']
+            )
 
             logits = OutputLayer.fwd(output_params, current)
 
@@ -160,9 +174,9 @@ class Trainer:
         eos_token_id = self.tokenizer.eos_token_id
 
         @jax.jit
-        def loss_and_grad_fn(embed_params, stack_params, output_params, token_ids, targets):
+        def loss_and_grad_fn(embed_params, stack_params, output_params, final_ln_params, token_ids, targets):
             """JIT-compiled loss and gradient computation."""
-            def loss_fn(embed_params, stack_params, output_params):
+            def loss_fn(embed_params, stack_params, output_params, final_ln_params):
                 embeddings, _ = EmbeddingLayer.embedding_fwd(embed_params, token_ids)
 
                 current = embeddings
@@ -176,6 +190,13 @@ class Trainer:
                         embedding_dim
                     )
 
+                # Apply final LayerNorm after all transformer blocks
+                current = TransformerBlock.layer_norm(
+                    current,
+                    final_ln_params['gamma'],
+                    final_ln_params['beta']
+                )
+
                 logits = OutputLayer.fwd(output_params, current)
                 # Ignore padding (0) during loss calculation
                 # Use ignore_index (scalar) instead of ignore_indices (list) for JIT compatibility
@@ -188,8 +209,8 @@ class Trainer:
                 )
                 return loss
 
-            loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2))(
-                embed_params, stack_params, output_params
+            loss, grads = jax.value_and_grad(loss_fn, argnums=(0, 1, 2, 3))(
+                embed_params, stack_params, output_params, final_ln_params
             )
             return loss, grads
 
@@ -279,7 +300,8 @@ class Trainer:
         return (
             self.embedding_layer.get_params(),
             [block.get_params() for block in self.transformer_stack.blocks],
-            self.output_layer.get_params()
+            self.output_layer.get_params(),
+            {'gamma': self.final_gamma, 'beta': self.final_beta}
         )
 
     def _unflatten_params(self, params):
@@ -290,7 +312,7 @@ class Trainer:
             params (tuple): Nested tuple of parameters matching _flatten_params structure
                            (embeddings_dict, stack_list, output_dict)
         """
-        embeddings_dict, stack_list, output_dict = params
+        embeddings_dict, stack_list, output_dict, final_ln_dict = params
 
         # Update embedding layer
         self.embedding_layer.embeddings = embeddings_dict['embeddings']
@@ -319,6 +341,9 @@ class Trainer:
         self.output_layer.W_out = output_dict['W_out']
         self.output_layer.b_out = output_dict['b_out']
 
+        self.final_gamma = final_ln_dict['gamma']
+        self.final_beta = final_ln_dict['beta']
+
     def fwd(self, *args, **kwargs):
         return self._fwd(*args, **kwargs)
 
@@ -336,18 +361,20 @@ class Trainer:
         embed_params = self.embedding_layer.get_params()
         stack_params = [block.get_params() for block in self.transformer_stack.blocks]
         output_params = self.output_layer.get_params()
+        final_ln_params = {'gamma': self.final_gamma, 'beta': self.final_beta}
 
         # Use the pre-compiled JIT function
         loss, grads = self._compiled_loss_and_grad(
-            embed_params, stack_params, output_params, token_ids, targets
+            embed_params, stack_params, output_params, final_ln_params, token_ids, targets
         )
 
-        embed_grads, stack_grads, output_grads = grads
+        embed_grads, stack_grads, output_grads, final_ln_grads = grads
 
         return loss, {
             'embeddings': embed_grads,
             'stack': stack_grads,
-            'output': output_grads
+            'output': output_grads,
+            'final_ln': final_ln_grads
         }
 
     def update_params(self, grads):
@@ -366,7 +393,8 @@ class Trainer:
         grads_pytree = (
             grads['embeddings'],  # This is a dict {'embeddings': ..., 'positional_encodings': ...}
             grads['stack'],        # This is a list of dicts
-            grads['output']        # This is a dict
+            grads['output'],        # This is a dict
+            grads['final_ln']
         )
 
         # Increment timestep
@@ -472,7 +500,7 @@ class Trainer:
                     # print(f"  Computing loss and gradients (JIT compiling on first batch)...")
                     loss, grads = self.compute_loss_and_grads(input_tokens, target_tokens)
 
-                    grads_pytree = (grads['embeddings'], grads['stack'], grads['output'])
+                    grads_pytree = (grads['embeddings'], grads['stack'], grads['output'], grads['final_ln'])
 
                     global_norm = jnp.sqrt(sum(
                         jnp.sum(jnp.square(g))
@@ -490,7 +518,8 @@ class Trainer:
                     grads = {
                         'embeddings': grads_pytree_clipped[0],
                         'stack': grads_pytree_clipped[1],
-                        'output': grads_pytree_clipped[2]
+                        'output': grads_pytree_clipped[2],
+                        'final_ln': grads_pytree_clipped[3]
                     }
                     # print(f"  Loss computed: {float(loss):.4f}")
 
@@ -642,6 +671,7 @@ class Trainer:
             'positional_encodings': self.embedding_layer.positional_encodings,
             'stack': [block.get_params() for block in self.transformer_stack.blocks],
             'output': self.output_layer.get_params(),
+            'final_ln': {'gamma': self.final_gamma, 'beta': self.final_beta},
             'optimizer_t': self.optimizer.t,
             'config': {
                 'num_blocks': self.num_blocks,
@@ -667,6 +697,7 @@ class Trainer:
             'positional_encodings': self.embedding_layer.positional_encodings,
             'stack': [block.get_params() for block in self.transformer_stack.blocks],
             'output': self.output_layer.get_params(),
+            'final_ln': {'gamma': self.final_gamma, 'beta': self.final_beta},
             'config': {
                 'num_blocks': self.num_blocks,
                 'num_heads': self.num_heads,
@@ -690,6 +721,8 @@ class Trainer:
             'positional_encodings': np.array(self.embedding_layer.positional_encodings),
             'output_W': np.array(self.output_layer.W_out),
             'output_b': np.array(self.output_layer.b_out),
+            'final_ln_gamma': np.array(self.final_gamma),
+            'final_ln_beta': np.array(self.final_beta),
         }
 
         # Add transformer blocks
@@ -754,6 +787,16 @@ class Trainer:
         self.output_layer.W_out = self.embedding_layer.embeddings.T
         self.output_layer.b_out = checkpoint['output']['b_out']
 
+        # Load final LayerNorm if it exists
+        if 'final_ln' in checkpoint:
+            self.final_gamma = checkpoint['final_ln']['gamma']
+            self.final_beta = checkpoint['final_ln']['beta']
+        else:
+            # Old checkpoint - initialize final LayerNorm
+            print("Warning: Old checkpoint format without final_ln. Initializing final LayerNorm.")
+            self.final_gamma = jnp.ones(self.embedding_layer.embedding_dim)
+            self.final_beta = jnp.zeros(self.embedding_layer.embedding_dim)
+
         # Restore optimizer state
         if 'adam_m' in checkpoint:
             self._adam_m = checkpoint['adam_m']
@@ -802,6 +845,7 @@ class Trainer:
         embed_params = self.embedding_layer.get_params()
         stack_params = [block.get_params() for block in self.transformer_stack.blocks]
         output_params = self.output_layer.get_params()
+        final_ln_params = {'gamma': self.final_gamma, 'beta': self.final_beta}
 
         # Force all operations to run on GPU if available
         with jax.default_device(jax.devices()[0]):
@@ -814,6 +858,7 @@ class Trainer:
                     embed_params,
                     stack_params,
                     output_params,
+                    final_ln_params,
                     batch_token_ids
                 )
 
