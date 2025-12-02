@@ -34,12 +34,12 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500, dropout=0.0):
+    def __init__(self, tokenizer:object, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500, dropout=0.0):
         """
         Initialize Trainer with model architecture.
 
         Args:
-            tokenizer: Tokenizer instance (TikToken or BPETokenizer)
+            tokenizer (object): Tokenizer instance (TikToken or BPETokenizer)
             training_data (list): List of text strings for training (default: None)
             lr (float): Learning rate (default: 1e-4)
             num_blocks (int): Number of transformer blocks to stack (default: 4)
@@ -175,7 +175,17 @@ class Trainer:
 
         @jax.jit
         def loss_and_grad_fn(embed_params, stack_params, output_params, final_ln_params, token_ids, targets):
-            """JIT-compiled loss and gradient computation."""
+            """
+            JIT-compiled loss and gradient computation.
+
+            Args:
+                embed_params (dict): dictionary containing embedding parameters
+                stack_params (dict): dictionary containing stack parameters
+                output_params (dict): dictionary containing output parameters
+                final_ln_params (dict): dictionary containing parameters from final layer normalization
+                token_ids (list): list of token ids
+                targets (jnp.ndarray): Next token IDs the model is supposed to predict
+            """
             def loss_fn(embed_params, stack_params, output_params, final_ln_params):
                 embeddings, _ = EmbeddingLayer.embedding_fwd(embed_params, token_ids)
 
@@ -345,6 +355,12 @@ class Trainer:
         self.final_beta = final_ln_dict['beta']
 
     def fwd(self, *args, **kwargs):
+        """
+        Helper function to return fwd
+
+        Returns:
+            tuple: _fwd method return
+        """
         return self._fwd(*args, **kwargs)
 
     def compute_loss_and_grads(self, token_ids, targets):
@@ -665,7 +681,9 @@ class Trainer:
         print("="*60)
 
     def save_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
-        """Save model parameters AND optimizer state to file (for resuming training)."""
+        """
+        Save model parameters AND optimizer state to file (for resuming training).
+        """
         checkpoint = {
             'embeddings': self.embedding_layer.embeddings,
             'positional_encodings': self.embedding_layer.positional_encodings,
@@ -691,7 +709,9 @@ class Trainer:
             pickle.dump(checkpoint, f)
 
     def save_model_only(self, path="artifacts/models/model.pkl"):
-        """Save ONLY model weights (smaller file, for inference only)."""
+        """
+        Save ONLY model weights (smaller file, for inference only).
+        """
         model_state = {
             'embeddings': self.embedding_layer.embeddings,
             'positional_encodings': self.embedding_layer.positional_encodings,
@@ -712,7 +732,9 @@ class Trainer:
         print(f"Model saved to {path} (weights only, no optimizer state)")
 
     def save_model_npz(self, path="artifacts/models/model.npz"):
-        """Save model weights as compressed NumPy arrays (smallest file size)."""
+        """
+        Save model weights as compressed NumPy arrays (smallest file size).
+        """
         import numpy as np
 
         # Collect all parameters as numpy arrays
@@ -754,7 +776,9 @@ class Trainer:
         print(f"Model saved to {path} (compressed NPZ format)")
 
     def load_checkpoint(self, path="artifacts/training_logs/training_logs.pkl"):
-        """Load model parameters from file."""
+        """
+        Load model parameters from file.
+        """
         print(f"Loading checkpoint from {path}...")
         print("This may take 1-2 minutes for large files...")
 
@@ -956,7 +980,15 @@ class Trainer:
     #     return batches
 
     def create_batches(self, batch_size=100):
-        """Create padded batches."""
+        """
+        Create padded batches.
+
+        Args:
+            batch_size (int): batch size
+
+        Returns:
+            list[list[np.array]]: list containing the padded batches
+        """
         fixed_len = self.max_seq_length
         batches = []
         for i in range(0, len(self.token_ids), batch_size):
@@ -971,7 +1003,16 @@ class Trainer:
         return batches
 
 
-    def extend_training(self, checkpoint_path, epochs=10, batch_size=20, save_every=5):
+    def extend_training(self, checkpoint_path:str, epochs=10, batch_size=20, save_every=5):
+        """
+        Extends training from a previous checkpoint
+
+        Args:
+            checkpoint_path (str): Path of checkpoint
+            epochs (int, optional): Number of epochs. Defaults to 10.
+            batch_size (int, optional): Batch size. Defaults to 20.
+            save_every (int, optional): Number of epochs after which model saves log. Defaults to 5.
+        """
         print(f"Loading checkpoint from {checkpoint_path}...")
         self.load_checkpoint(checkpoint_path)
 

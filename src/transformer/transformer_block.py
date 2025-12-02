@@ -279,26 +279,3 @@ class TransformerBlock:
 
         return result
 
-
-def main():
-
-    embedding_layer = EmbeddingLayer()
-
-    with open("artifacts/tokenizer.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
-
-    sample_texts = [
-        "Hello World. My name is Albert Lungu",
-        "What is your name?",
-        "I like LLMs"
-    ] # Batch size = 3, seq_len = 12, embedding_dim = 256 probably
-
-    token_ids = [tokenizer.encode(text) for text in sample_texts]
-
-    transformer_block = TransformerBlock(token_ids=token_ids, embedding_layer=embedding_layer)
-
-    transformer_block.fwd()
-
-if __name__ == "__main__":
-    main()

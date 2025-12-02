@@ -99,10 +99,14 @@ def save_trivia_qa(path):
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
-def save_flan(path, ds_len):
-    ds = load_dataset("Open-Orca/FLAN")
+def save_general_instruct(path:str, ds_len:int):
+    """
+    Save general instruction dataset from HuggingFace's Teknium/GPTeacher-General-Instruct dataset
 
-def save_general_instruct(path, ds_len):
+    Args:
+        path (str): Path to save dataset to
+        ds_len (int): Length (# examples) of dataset
+    """
     skipped_count = 0
     saved_count = 0
     ds = load_dataset("teknium/GPTeacher-General-Instruct")['train']

@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.embeddings.embeddings import EmbeddingLayer
-from src.tokenizer.tokenizer_class import BPETokenizer 
+from src.tokenizer.tokenizer_class import BPETokenizer
 from src.training.loss_function import CrossEntropyLoss
 
 class FeedForward():
@@ -23,7 +23,7 @@ class FeedForward():
     - GELU activation function.
     - Forward and backward passes for training with gradient descent.
     """
-    
+
 
     def __init__(self, embeddings: EmbeddingLayer, ff_dim = 0, num_blocks=1, dropout=0.0):
         """
@@ -161,10 +161,3 @@ class FeedForward():
             {'value': self.W2, 'grad': grads['dW2']},
             {'value': self.B2, 'grad': grads['dB2']},
         ]
-
-def main():
-    pass
-
-
-if __name__ == "__main__":
-    main()

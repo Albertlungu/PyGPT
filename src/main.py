@@ -16,7 +16,18 @@ from src.tokenizer.tiktoken_tokenizer import TikToken
 from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
-def save_token_ids(output_path):
+def load_BPE(tokenizer_path:str) -> None:
+    """
+    Loading the custom BPE tokenizer
+
+    Args:
+        tokenizer_path (str): Path to the pickled tokenizer file
+    """
+    with open(tokenizer_path, "rb") as f:
+        tokenizer = pickle.load(f)
+        tokenizer._ensure_vocab()
+
+def save_token_ids(output_path:str) -> None:
     """
     Save token ids to a pickled file in order to avoid 10 minutes of prep time during training.
     """
@@ -40,28 +51,18 @@ def save_token_ids(output_path):
     with open(output_path, "wb") as f:
         pickle.dump(token_ids, f)
 
-def train():
-    """Train a new model from scratch with JAX architecture."""
+def train() -> None:
+    """
+    Train a new model from scratch with JAX architecture.
+    """
 
     print("This code is running.")
-    # Load tokenizer - using TikToken
+
     tokenizer = TikToken()
     print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
 
-    # with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
-    #     tokenizer = pickle.load(f)
-    #     tokenizer._ensure_vocab()
-
-    with open("training_data/alpaca.txt", "r") as f:
-        content = f.read()
-
-    # Split by double newlines to get complete instruction-response pairs
-    training_texts = [doc.strip() for doc in content.split('\n\n') if doc.strip()]
     with open("training_data/tiktoken_alpaca.pkl", "rb") as f:
         token_ids = pickle.load(f)
-
-    # with open("training_data/alpaca_tokenized.pkl", "rb") as f:
-    #     token_ids = pickle.load(f)
 
     print("="*60)
     print("Appended training texts to list")
@@ -117,7 +118,10 @@ def train():
     print(generated_text)
     print("="*60)
 
-def extend():
+def extend() -> None:
+    """
+    Extend model training using the Trainer.extend() function
+    """
 
     tokenizer = TikToken()
     print(f"Loaded TikToken tokenizer with vocab size: {tokenizer.vocab_size}")
@@ -148,7 +152,9 @@ def extend():
 
 
 def main():
-    """Load a trained model and generate text."""
+    """
+    Load a trained model and generate text.
+    """
 
     print("Loading tokenizer...")
     with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
@@ -186,18 +192,15 @@ def main():
         print("Run: train() function to create a new JAX checkpoint")
         return
 
-    # Test multiple prompts - MUST match training format!
+
     prompts = [
-        "Instruction: Construct an analogy based on the given two words. \nInput: Air, Water. \nOutput:",
-        "Instruction: What is the major contribution of the philosopher Immanuel Kant?\nInput: \nOutput:",
-        "Instruction: Create a list of 20 vocabulary words related to marine animals.\nInput: \nOutput:",
-        "Instruction: Write a description of the Golden Gate Bridge.\nInput: \nOutput:",
-        "Instruction: List three best practices for starting a conversation.\nInput: \nOutput:",
-        "Instruction: Explain the importance of NASA's current mission to Mars.\nInput: \nOutput:"
+        "Instruction: Construct an analogy based on the given two words. \nInput: Air, Water. \nOutput: ",
+        "Instruction: What is the major contribution of the philosopher Immanuel Kant?\nInput: \nOutput: ",
+        "Instruction: Create a list of 20 vocabulary words related to marine animals.\nInput: \nOutput: ",
+        "Instruction: Write a description of the Golden Gate Bridge.\nInput: \nOutput: ",
+        "Instruction: List three best practices for starting a conversation.\nInput: \nOutput: ",
+        "Instruction: Explain the importance of NASA's current mission to Mars.\nInput: \nOutput: "
     ]
-
-
-
 
     for prompt in prompts:
         print("="*60)
@@ -230,8 +233,6 @@ if __name__ == "__main__":
         save_token_ids("training_data/alpaca_tokenized.pkl")
     else:
         main()
-
-    # main()
 
     end = time.time()
     print("="*60)

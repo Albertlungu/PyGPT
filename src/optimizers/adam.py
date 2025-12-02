@@ -36,7 +36,27 @@ class AdamNested:
     @staticmethod
     @jax.jit
     def _adam_step_fn(params, grads, m, v, t, beta1, beta2, lr, epsilon):
-        """Pure JAX function for Adam update (can be JIT compiled)."""
+        """
+        Pure JAX function for Adam update (can be JIT compiled).
+
+        Args:
+            params (dict): Dictionary containing model parameters
+            grads (dict): Dictionary containing model gradients
+            m (jax.numpy.DeviceArray): Running average of gradients
+            v (jax.numpy.DeviceArray): Contains running average of squared gradients
+            t (int): timestep - starts at 0 and increments by 1 with each call to step()
+            beta1 (float): First moment decay rate
+            beta2 (float): Second moment decay rate
+            lr (float): learning rate (very small: <1e-2 typically)
+            epsilon (float): numerical stability constant (very small, e.g., 1e-8)
+
+        Returns:
+            tuple: 3-element tuple containing:
+                - updated_params (dict): Parameters after the Adam update
+                - m_new (jax.numpy.DeviceArray): Updated first moment estimate
+                - v_new (jax.numpy.DeviceArray): Updated second moment estimate
+
+        """
         # Update biased first moment estimate
         m_new = beta1 * m + (1 - beta1) * grads
 
@@ -55,7 +75,9 @@ class AdamNested:
         return updated_params, m_new, v_new
 
     def get_lr(self):
-        """Get current learning rate based on schedule and timestep."""
+        """
+        Get current learning rate based on schedule and timestep.
+        """
         if self.schedule == 'constant':
             return self.base_lr
 
@@ -91,6 +113,19 @@ class AdamNested:
         return str(path)
 
     def _step_single(self, params, grads, path=()):
+        """
+        Makes a single step in Adam optimizer
+
+        Args:
+            params (jax.numpy.DeviceArray): Parameter array to be updated.
+            grads (jax.numpy.DeviceArray): Gradient of the parameter array.
+            path (tuple, optional): Tuple representing the hierarchical path
+                of the parameter in a nested structure (used as a key in self.state).
+                Defaults to ().
+
+        Returns:
+            jax.numpy.DeviceArray: Updated parameter array after applying the Adam step.
+        """
         key = self._get_state_key(path)
 
         if key not in self.state:

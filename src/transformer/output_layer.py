@@ -90,28 +90,3 @@ class OutputLayer:
         predicted_tokens = jnp.argmax(probs, axis = -1)
         return predicted_tokens
 
-
-def main():
-
-    with open("artifacts/tokenizer.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
-
-    sample_texts = [
-        "Hello World. My name is Albert Lungu",
-        "What is your name?",
-        "I like LLMs"
-    ] # Batch size: 3, Seq_len = 12
-
-    token_ids = [tokenizer.encode(text) for text in sample_texts]
-
-    embedding_layer = EmbeddingLayer()
-    output_layer = OutputLayer(embedding_layer)
-    transformer_block = TransformerBlock(token_ids, embedding_layer)
-    transformer_output = transformer_block.fwd()
-
-    output_fwd = output_layer.fwd(transformer_output)
-
-
-if __name__ == "__main__":
-    main()
