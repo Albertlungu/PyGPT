@@ -930,16 +930,17 @@ class Trainer:
 
                 token_ids.append(next_token)
 
-                print(next_token)
+                print(self.tokenizer.decode([next_token]), end="", flush=True)
 
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
-        try:
-            return self.tokenizer.decode(generated_token_ids), generated_token_ids
-        except (UnicodeDecodeError, Exception) as e:
-            print(f"Warning: Decoding error: {e}")
-            print(f"Generated token IDs: {generated_token_ids[:20]}...")
-            return "[Generation failed - invalid tokens produced]"
+        # try:
+        #     return self.tokenizer.decode(generated_token_ids), generated_token_ids
+        # except (UnicodeDecodeError, Exception) as e:
+        #     print(f"Warning: Decoding error: {e}")
+        #     print(f"Generated token IDs: {generated_token_ids[:20]}...")
+        #     return "[Generation failed - invalid tokens produced]"
+        return "", generated_token_ids
 
     # def create_batches(self, batch_size=100):
     #     """Create padded batches."""
