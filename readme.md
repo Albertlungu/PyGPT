@@ -22,7 +22,7 @@ This is used as more of a learning experience for myself to understand the conce
 - matplotlib
 
 ## Installation and Setup (MacOS METAL)
-This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below.
+This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below. Or, you could simply use the `metal_setup.sh` file after cloning.
 
 
 ```bash
@@ -81,6 +81,9 @@ pip install -r requirements.txt
 ```
 
 ## Installation and Setup (Cuda-enabled GPU)
+
+Either run the `cuda_setup.sh` file
+
 ```bash
 git clone "https://github.com/Albertlungu/PyGPT.git" #Clone the github repository
 cd PyGPT
@@ -96,7 +99,7 @@ Start virtual environment
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r gpu-requirements.txt # If your cuda version is different than 12.x, modify the gpu-requirements file to reflect that
+pip install -r cuda-requirements.txt # If your cuda version is different than 12.x, modify the gpu-requirements file to reflect that
 ```
 
 **Upon runtime**, you may receive an error saying:
@@ -123,12 +126,12 @@ cd PyGPT # Make sure you are in the root directory.
 python src/main/data_loader.py # Does not require "python3" since we are on Python 3.10.19
 ```
 
-Remember, the tokenizer is trained on the specific Dolly-15k dataset. If you would like to use a different dataset, follow the tokenizer guide below. 
+Remember, the tokenizer is trained on the specific Dolly-15k dataset. If you would like to use a different dataset, follow the tokenizer guide below.
 
 For your own ease of use, I have included `src/utils/generate_synthetic_math_latex.py`, which can be used to make a dataset for understanding and interpreting math and LaTeX syntax. This, mixed with other databases from HuggingFace, can result in a specialized model.
 
 ## How to train tokenizer on your own dataset
-To train the tokenizer on your own dataset, you first want to make sure it is cleaned of "Instructions", or "Responses", or anything of the sort. This is so that the model doesn't get confused by that noise. 
+To train the tokenizer on your own dataset, you first want to make sure it is cleaned of "Instructions", or "Responses", or anything of the sort. This is so that the model doesn't get confused by that noise.
 
 Before training, load your dataset into a .txt file, and take a look at the format. If it has any of these labels, follow the code for the labels already covered in `clean_text` (lines 281 to 307):
 
