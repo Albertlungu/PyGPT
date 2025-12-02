@@ -24,7 +24,7 @@ class TransformerBlock:
         gamma_2, beta_2: Learnable parameters for second layer normalization.
         attention_output: Output from the attention layer.
     """
-    
+
     def __init__(self, embedding_layer: EmbeddingLayer, num_heads = 8, num_blocks=1, dropout=0.0):
         """
         Initializing instance variables for the TransformerBlock class
@@ -71,7 +71,7 @@ class TransformerBlock:
         output = gamma * normalized + beta
 
         return output
-    
+
     @staticmethod
     def fwd(params, x, num_heads, head_dim, embedding_dim, dropout=0.0, training=True, rng_key=None):
         """
@@ -142,7 +142,7 @@ class TransformerBlock:
         final_output = residual_2 + ff_output
 
         return final_output
-    
+
     @staticmethod
     @jax.jit
     def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
@@ -156,7 +156,7 @@ class TransformerBlock:
             head_dim (int): Dimension of each head
             embedding_dim (int): Embedding dimension
             past_kv (jnp.jnparray, optional): Cached K and V from the layer's other calls. Defaults to None.
-        
+
         Returns:
             output: (batch, 1, embedding_dim)
             new_kv: Updated (K, V) cache
@@ -202,15 +202,15 @@ class TransformerBlock:
             'gamma_2': self.gamma_2,
             'beta_2': self.beta_2
         }
-    
+
     def compute_grads(self, x, d_output):
         """
         Compute gradients using JAX autodiff
 
         Args:
             x (jnp.ndarray): Input to this block (batch, seq_len, embedding_dim)
-            d_output (jnp.ndarray): Gradient from next layer/transformer block 
-        
+            d_output (jnp.ndarray): Gradient from next layer/transformer block
+
         Returns:
             tuple: (grads_dict, d_input)
                 - grads_dict: Gradients for all parameters
@@ -229,7 +229,7 @@ class TransformerBlock:
 
         grads_params, d_input = vjp_fn(d_output)
         return grads_params, d_input
-    
+
     def get_params_and_grads(self, grads=None):
         """
         Return params and grads in Trainer format
@@ -240,7 +240,7 @@ class TransformerBlock:
         Returns:
             list: List of {'value': param, 'grad': grad} dicts
         """
-        
+
         if grads is None:
             grads = {
                 'attn': {k: jnp.zeros_like(v) for k,v in self.attention_layer.get_params().items()},
@@ -262,7 +262,7 @@ class TransformerBlock:
                 'value': self.attention_layer.get_params()[key],
                 'grad': grads['attn'][key]
             })
-        
+
         result.extend([
             {'value': self.ffn.W1, 'grad': grads['ffn']['W1']},
             {'value': self.ffn.B1, 'grad': grads['ffn']['B1']},

@@ -37,7 +37,7 @@ class TransformerStack:
             TransformerBlock(embedding_layer, num_heads, num_blocks, dropout)
             for _ in range(num_blocks)
         ]
-    
+
     def fwd(self, x):
         """
         Forward pass through all stacked blocks
@@ -79,7 +79,7 @@ class TransformerStack:
             head_dim = self.embedding_dim // self.num_heads
             current = TransformerBlock.fwd(
                 params, current, self.num_heads, head_dim, self.embedding_dim
-            ) 
+            )
             activations.append(current)
 
         all_grads = []
@@ -91,9 +91,9 @@ class TransformerStack:
 
             grads, d_current = block.compute_grads(block_input, d_current)
             all_grads.insert(0, grads)
-        
+
         return all_grads
-    
+
     def get_params_and_grads(self, all_grads=None):
         """
         Collect parameters and gradients from all blocks.
@@ -106,9 +106,9 @@ class TransformerStack:
         """
         if all_grads is None:
             all_grads = [None] * self.num_blocks
-        
+
         result = []
         for block, grads in zip(self.blocks, all_grads):
             result.extend(block.get_params_and_grads(grads))
-        
+
         return result

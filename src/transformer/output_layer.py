@@ -40,13 +40,13 @@ class OutputLayer:
         logits = transformer_output @ params['W_out']  + params['b_out']
         # print(np.shape(self.logits))
         return logits
-    
+
     def get_params(self):
         return {
             'W_out': self.W_out,
             'b_out': self.b_out
         }
-    
+
     def compute_grads(self, transformer_output, d_output):
         params = self.get_params()
         output, vjp_fn = jax.vjp(
@@ -56,7 +56,7 @@ class OutputLayer:
         )
         grads_params, d_input = vjp_fn(d_output)
         return grads_params, d_input
-    
+
     def get_params_and_grads(self):
         if grads is None:
               grads = {
@@ -89,8 +89,8 @@ class OutputLayer:
         probs = jax.nn.softmax(scaled_logits)
         predicted_tokens = jnp.argmax(probs, axis = -1)
         return predicted_tokens
-        
-    
+
+
 def main():
 
     with open("artifacts/tokenizer.pkl", "rb") as f:

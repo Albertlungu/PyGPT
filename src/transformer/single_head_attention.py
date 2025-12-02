@@ -13,9 +13,9 @@ class Attention():
     Implements a single-head self-attention mechanism for transformer models.
 
     This class computes attention by generating query, key, and value matrices
-    from input embeddings. It applies scaled dot-product attention with a 
-    causal mask to prevent positions from attending to future tokens, 
-    ensuring proper autoregressive behaviour in decoder models. 
+    from input embeddings. It applies scaled dot-product attention with a
+    causal mask to prevent positions from attending to future tokens,
+    ensuring proper autoregressive behaviour in decoder models.
 
     Attributes:
         input (3D tensor): Embedded input tokens of shape (batch_size, seq_len, embedding_dim).
@@ -62,7 +62,7 @@ class Attention():
 
         Args:
             x (numpy array):  scaled scores from mask
-        
+
         Return:
             probablities (numpy array): probabilities
         """
@@ -118,11 +118,11 @@ class Attention():
         # Final output projection
         self.output = self.attention_output @ self.W_O
         return self.output, self.input, self.attention_output, self.V, self.attention_weights, self.K
-    
+
     def backward(self, d_output, input_tensor, attention_output_fwd, V_fwd, attention_weights_fwd, K_fwd):
         """
         Backward pass for single-head attention.
-        
+
         Args:
             d_output (numpy array): Gradient of the loss with respect to the attention output.
                                     Shape: (batch_size, seq_len, embedding_dim)
@@ -136,7 +136,7 @@ class Attention():
                                                  Shape: (batch_size, seq_len, seq_len)
             K_fwd (numpy array): The key matrix from the forward pass.
                                  Shape: (batch_size, seq_len, embedding_dim)
-        
+
         Returns:
             dX (numpy array): Gradient with respect to input embeddings. Same shape as self.input
         """
@@ -184,7 +184,7 @@ class Attention():
         dX = dQ @ self.W_Q.T + dK @ self.W_K.T + dV @ self.W_V.T
 
         return dX
-    
+
     def get_params_and_grads(self):
         return [
             {'value': self.W_Q, 'grad': self.dW_Q},
@@ -199,7 +199,7 @@ def main():
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
-    
+
     sample_texts = [
         "Hello World. My name is Albert Lungu",
         "What is your name?",

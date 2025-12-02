@@ -14,7 +14,7 @@ class MultiHeadAttention:
       This class implements the multi-head attention mechanism from "Attention is All You Need" (Vaswani et al., 2017).
       It splits the embedding dimension into multiple attention heads, allowing the model to jointly attend to
       information from different representation subspaces at different positions.
-      
+
       Attributes:
           embedding_dim (int): Dimensionality of input embeddings (e.g., 256)
           num_heads (int): Number of parallel attention heads (default: 8)
@@ -34,7 +34,7 @@ class MultiHeadAttention:
             num_heads (int, optional): Number of heads for multi-head attention. Defaults to 8.
         """
         self.embedding_dim = embedding_layer.embedding_dim
-        
+
         self.num_heads = num_heads
         self.head_dim = self.embedding_dim // self.num_heads
         self.dropout = dropout
@@ -99,7 +99,7 @@ class MultiHeadAttention:
             keep_prob = 1.0 - dropout
             dropout_mask = jax.random.bernoulli(rng_key, keep_prob, attn_weights.shape)
             attn_weights = jnp.where(dropout_mask, attn_weights / keep_prob, 0.0)
-            
+
 
         # Apply attention to values
         attn_output = attn_weights @ V
@@ -111,7 +111,7 @@ class MultiHeadAttention:
         output = attn_output @ params["W_O"]
 
         return output
-    
+
     @staticmethod
     @jax.jit
     def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
@@ -171,7 +171,7 @@ class MultiHeadAttention:
 
         return out, (K, V)
 
-    
+
     def compute_grads(self, x, d_output):
         """
         Most efficient version of backprop using JAX's vjp
@@ -189,7 +189,7 @@ class MultiHeadAttention:
             lambda p, x_: self.fwd(p, x_, self.num_heads, self.head_dim, self.embedding_dim), params, x)
         grads_params, d_input = vjp_fn(d_output)
         return grads_params, d_input
-    
+
     def get_params_and_grads(self, grads = None):
         """
         Return params and grads in the format Trainer expects.
@@ -213,7 +213,7 @@ class MultiHeadAttention:
             {'value': self.W_V, 'grad': grads['W_V']},
             {'value': self.W_O, 'grad': grads['W_O']},
         ]
-    
+
     def get_params(self):
         return {
             "W_Q": self.W_Q,

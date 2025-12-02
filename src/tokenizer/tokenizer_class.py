@@ -50,7 +50,7 @@ class BPETokenizer:
         self.base_vocab_size = 256
         self.merges = {} # initializing merges dictionary
         self.vocab = {idx: bytes([idx]) for idx in range(256)}
-        
+
         self.eos_token_id = self.vocab_size - 1
         self.padding_token_id = 0
         self.special_tokens = {
@@ -260,7 +260,7 @@ def test_tokenizer(path):
     with open(path, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
             training_texts.append(line.strip())
-    
+
 
     ids = []
     for i in training_texts:

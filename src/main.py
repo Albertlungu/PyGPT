@@ -93,7 +93,7 @@ def train():
     # Train with automatic checkpointing
     trainer.train(
         epochs=20,       # Reduced from 10 to 2 epochs
-        batch_size=32,  
+        batch_size=32,
         checkpoint_path="artifacts/training_logs/alpaca284.pkl",
         save_every=1,
         prompt="Instruction: List three best practices for starting a conversation.\nInput: \nOutput:"    # Save every 2 epochs

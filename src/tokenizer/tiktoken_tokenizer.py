@@ -52,11 +52,11 @@ class TikToken:
             str: Decoded text
         """
         return self.enc.decode(token_ids)
-    
+
 def tokenize_data(input_path, output_path):
     with open(input_path, "r") as f:
         data = f.read()
-    
+
     training_texts = [doc.strip() for doc in data.split('\n\n') if doc.strip()]
 
     tokenizer = TikToken()
@@ -66,7 +66,7 @@ def tokenize_data(input_path, output_path):
         ids = tokenizer.encode(i)
         ids.append(tokenizer.eos_token_id)
         token_ids.append(ids)
-    
+
     with open(output_path, "wb") as f:
         pickle.dump(token_ids, f)
 
@@ -89,11 +89,11 @@ def main():
 def test_tokenized(path):
     with open(path, "rb") as f:
         data = pickle.load(f)
-    
+
     tokenizer = TikToken()
 
     print(tokenizer.decode(data[-1]))
-    
+
 
 
 if __name__ == "__main__":

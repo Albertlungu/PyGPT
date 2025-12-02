@@ -63,7 +63,7 @@ class FeedForward():
         residual_scale = scale / jnp.sqrt(2.0 * num_blocks)
         self.W2 = jax.random.normal(k2, (self.ff_dim, self.embedding_dim)) * residual_scale # Weight second layer with residual scaling
         self.B2 = jnp.zeros(self.embedding_dim) # Bias second layer
-            
+
     @staticmethod
     def GELU(x):
         """
@@ -76,7 +76,7 @@ class FeedForward():
             array: activated layer from hidden layer
         """
         return 0.5 * x * (1+jnp.tanh(jnp.sqrt(2/jnp.pi) * (x + 0.044715 * x**3)))
-    
+
     @staticmethod
     def ReLU(x):
         """Basically GELU but simpler
@@ -109,7 +109,7 @@ class FeedForward():
             keep_prob = 1.0 - dropout
             dropout_mask = jax.random.bernoulli(rng_key, keep_prob, output.shape)
             output = jnp.where(dropout_mask, output / keep_prob, 0.0)
-            
+
         return output
 
     @jax.jit
@@ -127,7 +127,7 @@ class FeedForward():
         activated = self.GELU(hidden)
         output = activated @ self.W2 + self.B2
         return output
-    
+
     def compute_grads(self, x, target_ids):
         """
         Computes gradients of the mean squared error loss w.r.t. the weights and biases.
@@ -144,7 +144,7 @@ class FeedForward():
             activated = self.GELU(hidden)
             logits = activated @ W2 + B2
             return self.loss_fn(logits, target_ids)
-        
+
         grads = jax.grad(loss_fn, argnums=(0,1,2,3))(self.W1, self.B1, self.W2, self.B2)
 
         return{
@@ -153,7 +153,7 @@ class FeedForward():
             'dW2': grads[2],
             'dB2': grads[3]
         }
-    
+
     def get_params_and_grads(self, grads):
         return [
             {'value': self.W1, 'grad': grads['dW1']},

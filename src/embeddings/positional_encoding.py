@@ -13,7 +13,7 @@ class PositionalEncoding:
         """
         self.max_seq_length = max_seq_length
         self.embedding_dim = embedding_dim
-          
+
     def _create_positional_encoding(self, n=10000) -> jnp.array:
         # making variables in accordance to understanding_positional_encoding.md
         """
@@ -34,7 +34,7 @@ class PositionalEncoding:
         #         P[k, 2*i] = np.sin(k/denominator)
         #         P[k, 2*i +1] = np.cos(k/denominator)
         # return P
-        
+
         L, d = self.max_seq_length, self.embedding_dim
         pos = jnp.arange(L)[:, None]
         i = jnp.arange(d)[None, :]

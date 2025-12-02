@@ -413,7 +413,7 @@ class Trainer:
         # Unpack updated parameters back to model
         self._unflatten_params(updated_params)
         self.output_layer.W_out = self.embedding_layer.embeddings.T # Force weight tying by making W_out ALWAYS = embeddings.T
-        
+
         self.output_layer.b_out = jnp.clip(self.output_layer.b_out, -5.0, 5.0) # Add b_out clipping to prevent massive values
 
     def _get_timestamped_checkpoint_path(self, base_path):
@@ -954,7 +954,7 @@ class Trainer:
     #         ]
     #         batches.append(np.array(padded_batches))
     #     return batches
-    
+
     def create_batches(self, batch_size=100):
         """Create padded batches."""
         fixed_len = self.max_seq_length
@@ -969,8 +969,8 @@ class Trainer:
                 padded_batches.append(seq + [0] * (fixed_len - len(seq)))
             batches.append(np.array(padded_batches))
         return batches
-        
-    
+
+
     def extend_training(self, checkpoint_path, epochs=10, batch_size=20, save_every=5):
         print(f"Loading checkpoint from {checkpoint_path}...")
         self.load_checkpoint(checkpoint_path)

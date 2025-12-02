@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 class CrossEntropyLoss:
     """
-    Function that tells the model how wrong its predictions are. 
+    Function that tells the model how wrong its predictions are.
     Cross-entropy measures the difference between the model's prediction (from output_layer) and the true next token.
     """
     def __init__(self, ignore_index = None, reduction = 'mean'):
@@ -17,7 +17,7 @@ class CrossEntropyLoss:
             ignore_index (int, optional): Which index to ignore. Defaults to None.
             reduction (str, optional): Type of reduction, 'sum' or 'mean'. Defaults to 'mean'.
         """
-        self.ignore_index = ignore_index 
+        self.ignore_index = ignore_index
         self.reduction = reduction
         self.grad_fn = jax.grad(self.fwd)
 

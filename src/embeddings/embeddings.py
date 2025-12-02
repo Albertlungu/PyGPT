@@ -83,7 +83,7 @@ class EmbeddingLayer:
 
         padded = jax.lax.fori_loop(0, batch_size, scatter_seq, padded)
         return padded
-        
+
 
     @staticmethod
     def embedding_fwd(params, padded_token_ids, pad_token_id=None, dropout=0.0, training=True, rng_key=None):
@@ -137,12 +137,12 @@ class EmbeddingLayer:
             keep_prob = 1.0 - dropout
             dropout_mask = jax.random.bernoulli(rng_key, keep_prob, output.shape)
             output = jnp.where(dropout_mask, output / keep_prob, 0.0)
-            
+
         return output, mask
-    
+
     # Removed loss_fn method - loss computation is now handled in Trainer
 
-    
+
     def update(self, grads, learning_rate):
         """
         Updates embedding weights using gradients (added up from all ids)
@@ -154,7 +154,7 @@ class EmbeddingLayer:
         embedding_grads, pos_enc_grads = grads
         self.embeddings -= learning_rate * embedding_grads
         self.positional_encodings -= learning_rate * pos_enc_grads
-    
+
     def save(self, filepath):
         """
         Save embeddings to a file
