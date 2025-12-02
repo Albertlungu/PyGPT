@@ -9,10 +9,7 @@ import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
 from src.embeddings.positional_encoding import PositionalEncoding
 import src.utils.config
-import re
-from tqdm import tqdm
 import pickle
-import matplotlib.pyplot as plt
 
 """
 What to know:    
@@ -23,10 +20,24 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 """
 
 class EmbeddingLayer:
+    """
+    EmbeddingLayer class
+
+    Attributes:
+        vocab_size (int): Vocabulary size.
+        embedding_dim (int): Embedding dimension.
+        max_seq_len (int): Maximum sequence length to parse
+        n (int): Number of positions for which to generate positional encodings.
+        dropout (float): Dropout probability
+        key (int32): PRNG Key from JAX's random module
+        embeddings (List[int, int]): Randomly initialized embedding matrix of shape [vocab_size, embedding_dim]
+        positional_encoding_class (class[int, int]): Positional encoding class
+        positional_encoding (jnp.array): Positional encodings taken from the _create_positional_encoding method in PositionalEncoding
+    """
 
     default_embedding_dim = 256
 
-    def __init__(self, vocab_size = None, embedding_dim = None, max_seq_length = 256, n = 10000, dropout=0.0):
+    def __init__(self, vocab_size=None, embedding_dim=None, max_seq_length=256, n=10000, dropout=0.0) -> None:
         """
         Initializes an EmbeddingLayer object.
 
@@ -51,6 +62,17 @@ class EmbeddingLayer:
 
     @staticmethod
     def pad_token_ids(max_len, token_ids, pad_token_id=None):
+        """
+        Pads token ids
+
+        Args:
+            max_len (int): Maximum length of embeddings
+            token_ids (list): List of token ids to pad
+            pad_token_id (int, optional): Pad token id. Defaults to None.
+
+        Returns:
+            list: Padded token IDs
+        """
         batch_size = len(token_ids)
         padded = jnp.full((batch_size, max_len), pad_token_id, dtype=jnp.int32)
         lengths = jnp.array([min(len(seq), max_len) for seq in token_ids])
@@ -65,6 +87,20 @@ class EmbeddingLayer:
 
     @staticmethod
     def embedding_fwd(params, padded_token_ids, pad_token_id=None, dropout=0.0, training=True, rng_key=None):
+        """
+        Forward method of the embedding layer
+
+        Args:
+            params (dict): Dictionary containing parameters
+            padded_token_ids (list): List with padded token ids
+            pad_token_id (int, optional): Pad token id. Defaults to None.
+            dropout (float, optional): Dropout probability. Defaults to 0.0.
+            training (bool, optional): Is training? Defaults to True.
+            rng_key (int, optional): Seed for random number generation. Defaults to None.
+
+        Returns:
+            tuple(jnp.array, list): Tuple containing the output embeddings and the mask
+        """
         # Unpack params - params is now a dict for consistency with other layers
         embeddings = params['embeddings']
         positional_encodings = params['positional_encodings']
@@ -113,6 +149,7 @@ class EmbeddingLayer:
 
         Args:
             learning_rate (float): rate at which the machine moves forward
+            grads (jnp.jnparray): gradients from the backward pass
         """
         embedding_grads, pos_enc_grads = grads
         self.embeddings -= learning_rate * embedding_grads
@@ -121,6 +158,8 @@ class EmbeddingLayer:
     def save(self, filepath):
         """
         Save embeddings to a file
+        Args:
+            filepath (str): file from which embeddings are loaded
         """
 
         with open(filepath, 'wb') as f:
@@ -132,7 +171,11 @@ class EmbeddingLayer:
             }, f)
 
     def load(self, filepath):
-        """Load embeddings from file"""
+        """
+        Load embeddings from file
+        Args:
+            filepath (str): file from which embeddings are loaded
+        """
         with open(filepath, 'rb') as f:
             data = pickle.load(f)
             self.embeddings = data['embeddings']
@@ -142,31 +185,19 @@ class EmbeddingLayer:
             self.positional_encodings = self.positional_encoding_class._create_positional_encoding()
 
     def get_params(self):
-        """Get parameters as a dict for JAX functions (consistent with other layers)"""
+        """
+        Get parameters as a dict for JAX functions (consistent with other layers)
+        """
         return {
             'embeddings': self.embeddings,
             'positional_encodings': self.positional_encodings
         }
 
     def get_params_and_grads(self):
+        """
+        Gets parameters and gradients from embedding class
+
+        Returns:
+            tuple(list[int, int], jnp.array): Tuple containing embeddings and positional encodings
+        """
         return (self.embeddings, self.positional_encodings)
-
-
-def main():
-    # print("="*60)
-    # print("LOADING TOKENIZER")
-    # print("="*60)
-    
-    with open('artifacts/tokenizer.pkl', 'rb') as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
-
-    embedding_layer = EmbeddingLayer()
-
-    
-    print("="*60)
-    print("Main ran with no errors")
-    print("="*60)
-
-if __name__ == '__main__':
-    main()

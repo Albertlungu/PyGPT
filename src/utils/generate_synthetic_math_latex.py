@@ -1,8 +1,7 @@
+import math
 import argparse
 import random
 from tqdm import tqdm
-import math
-
 
 def make_expressions(random_state):
 
@@ -25,7 +24,7 @@ def make_expressions(random_state):
                 terms.append(coeff * var**power)
         expr = sum(terms)
         return expr
-    
+        
     if style == 'poly':
         expr = rand_poly()
     elif style == 'frac':
@@ -34,7 +33,12 @@ def make_expressions(random_state):
 
         if den == 0:
             den == 1
-        expr = sp.Rational(num, den) if isinstance(num, sp.Integer) and isinstance(den, sp.Integer) else num/den
+
+        if isinstance(num, den) and isinstance(den, sp.Integer):
+            expr = sp.Rational(num, den)
+        else:
+            expr = num/den
+
     elif style == 'power':
         base = rand_poly()
         exp = random_state.randint(2, 4)
