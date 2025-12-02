@@ -23,8 +23,8 @@ class OutputLayer:
 
         self.W_out = embedding_layer.embeddings.T # Weight matrix shape: (embedding_dim, vocab_size)
         # self.W_out = np.random.randn(self.embedding_dim, self.vocab_size) * 0.01
-        # self.b_out = jnp.zeros(self.vocab_size) # Bias vector
-        # Don't use bias vector
+        self.b_out = jnp.zeros(self.vocab_size) # Bias vector
+
     @staticmethod
     def fwd(params, transformer_output):
         """
@@ -37,14 +37,14 @@ class OutputLayer:
             3D Tensor: Logits over vocabulary,
                 Shape: (batch_size, seq_len, vocab_size)
         """
-        logits = transformer_output @ params['W_out'] # + params['b_out']
+        logits = transformer_output @ params['W_out']  + params['b_out']
         # print(np.shape(self.logits))
         return logits
     
     def get_params(self):
         return {
-            'W_out': self.W_out
-            # 'b_out': self.b_out
+            'W_out': self.W_out,
+            'b_out': self.b_out
         }
     
     def compute_grads(self, transformer_output, d_output):
@@ -60,13 +60,13 @@ class OutputLayer:
     def get_params_and_grads(self):
         if grads is None:
               grads = {
-                  'W_out': jnp.zeros_like(self.W_out)
-                  # 'b_out': jnp.zeros_like(self.b_out)
+                  'W_out': jnp.zeros_like(self.W_out),
+                  'b_out': jnp.zeros_like(self.b_out)
               }
 
         return [
-            {'value': self.W_out, 'grad': grads['W_out']}
-            # {'value': self.b_out, 'grad': grads['b_out']}
+            {'value': self.W_out, 'grad': grads['W_out']},
+            {'value': self.b_out, 'grad': grads['b_out']}
         ]
 
     def predict_next_token(self, transformer_output, temperature = 1.0):

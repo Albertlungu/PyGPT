@@ -339,7 +339,7 @@ class Trainer:
 
         # Update output layer
         self.output_layer.W_out = output_dict['W_out']
-        # self.output_layer.b_out = output_dict['b_out']
+        self.output_layer.b_out = output_dict['b_out']
 
         self.final_gamma = final_ln_dict['gamma']
         self.final_beta = final_ln_dict['beta']
@@ -412,9 +412,9 @@ class Trainer:
 
         # Unpack updated parameters back to model
         self._unflatten_params(updated_params)
-        self.output_layer.W_out = self.embedding_layer.embeddings.T # WEIGHT TYING WAS MESSING UP MY LOSS ASASDJASGAKJDHASAJKDH
-        # Anyways force weight tying by making W_out ALWAYS = embeddings.T
+        self.output_layer.W_out = self.embedding_layer.embeddings.T # Force weight tying by making W_out ALWAYS = embeddings.T
         
+        self.output_layer.b_out = jnp.clip(self.output_layer.b_out, -5.0, 5.0) # Add b_out clipping to prevent massive values
 
     def _get_timestamped_checkpoint_path(self, base_path):
         """
@@ -618,7 +618,7 @@ class Trainer:
 
         # Output layer parameters
         param_counts['output'] += self.output_layer.W_out.size
-        # param_counts['output'] += self.output_layer.b_out.size
+        param_counts['output'] += self.output_layer.b_out.size
 
         # Total
         param_counts['total'] = sum(param_counts.values()) - param_counts['total']
@@ -720,7 +720,7 @@ class Trainer:
             'embeddings': np.array(self.embedding_layer.embeddings),
             'positional_encodings': np.array(self.embedding_layer.positional_encodings),
             'output_W': np.array(self.output_layer.W_out),
-            # 'output_b': np.array(self.output_layer.b_out),
+            'output_b': np.array(self.output_layer.b_out),
             'final_ln_gamma': np.array(self.final_gamma),
             'final_ln_beta': np.array(self.final_beta),
         }
@@ -785,7 +785,7 @@ class Trainer:
             block.beta_2 = block_params['beta_2']
 
         self.output_layer.W_out = self.embedding_layer.embeddings.T
-        # self.output_layer.b_out = checkpoint['output']['b_out']
+        self.output_layer.b_out = checkpoint['output']['b_out']
 
         # Load final LayerNorm if it exists
         if 'final_ln' in checkpoint:
@@ -929,6 +929,8 @@ class Trainer:
                     break
 
                 token_ids.append(next_token)
+
+                print(next_token)
 
         # Decode only the generated tokens (excluding the prompt)
         generated_token_ids = token_ids[prompt_length:]
