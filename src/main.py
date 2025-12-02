@@ -1,11 +1,16 @@
+"""
+Main entry point for training and running the transformer model.
+
+This module provides functions to load tokenizers, train models, and generate text.
+"""
 import os
-# import numpy as np
 import sys
+import time
+import pickle
+# import numpy as np
 # import jax
 # import jax.numpy as jnp
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import time
-import pickle
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 # from datasets import load_dataset

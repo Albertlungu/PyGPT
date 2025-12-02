@@ -1,38 +1,40 @@
+"""
+Token embedding layer with positional encoding for transformer models.
+
+This module implements the embedding layer that converts token IDs to dense vectors
+and adds positional information. The embedding dimensions are typically powers of 2
+(128, 256, 512, 1024).
+
+Reference:
+https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/
+"""
 import os
+import sys
+import xml.etree.ElementTree as ET
+import pickle
 import numpy as np
 import jax
 import jax.numpy as jnp
 
-import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-import xml.etree.ElementTree as ET
 from src.tokenizer.tokenizer_class import BPETokenizer
 from src.embeddings.positional_encoding import PositionalEncoding
 import src.utils.config
-import pickle
-
-"""
-What to know:    
-- The embedding model is a matrix which takes in (vocab_size, embedding size) as parameters for the size of the matrix
-    - Embedding size tends to be an exponent of 2 (i.e. 128, 256, 512, 1024, etc.)
-Very useful website for understanding this:
-https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-in-transformer-models-part-1/
-"""
 
 class EmbeddingLayer:
     """
-    EmbeddingLayer class
+    Token embedding layer with positional encoding for transformer models.
 
     Attributes:
         vocab_size (int): Vocabulary size.
         embedding_dim (int): Embedding dimension.
-        max_seq_len (int): Maximum sequence length to parse
-        n (int): Number of positions for which to generate positional encodings.
-        dropout (float): Dropout probability
-        key (int32): PRNG Key from JAX's random module
-        embeddings (List[int, int]): Randomly initialized embedding matrix of shape [vocab_size, embedding_dim]
-        positional_encoding_class (class[int, int]): Positional encoding class
-        positional_encoding (jnp.array): Positional encodings taken from the _create_positional_encoding method in PositionalEncoding
+        max_seq_length (int): Maximum sequence length.
+        n (int): Positional encoding frequency parameter.
+        dropout (float): Dropout probability.
+        key (jax.random.PRNGKey): PRNG key from JAX's random module.
+        embeddings (jnp.ndarray): Embedding matrix of shape (vocab_size, embedding_dim).
+        positional_encoding_class (PositionalEncoding): Instance of PositionalEncoding class.
+        positional_encodings (jnp.ndarray): Positional encodings of shape (max_seq_length, embedding_dim).
     """
 
     default_embedding_dim = 256
@@ -41,11 +43,12 @@ class EmbeddingLayer:
         """
         Initializes an EmbeddingLayer object.
 
-        Parameters:
-            vocab_size (int): the size of the vocabulary. Required.
-            embedding_dim (int): the size of the embedding dimension. Optional.
-            max_seq_length (int, optional): the maximum sequence length. Defaults to 256. Optional.
-            dropout (float, optional): Dropout probability. Defaults to 0.0. Optional.
+        Args:
+            vocab_size (int): Size of the vocabulary.
+            embedding_dim (int, optional): Embedding dimension. Defaults to 256.
+            max_seq_length (int, optional): Maximum sequence length. Defaults to 256.
+            n (int, optional): Positional encoding frequency parameter. Defaults to 10000.
+            dropout (float, optional): Dropout probability. Defaults to 0.0.
         """
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim or self.default_embedding_dim

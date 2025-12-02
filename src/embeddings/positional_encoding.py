@@ -1,29 +1,40 @@
+"""
+Positional encoding for transformer models.
+
+This module provides sinusoidal positional encodings to give the model
+information about token positions in sequences.
+"""
 import numpy as np
 import jax
 import jax.numpy as jnp
 
 class PositionalEncoding:
+    """
+    Sinusoidal positional encoding for transformer architectures.
+
+    Generates position-dependent patterns using sine and cosine functions
+    to encode sequence position information.
+    """
     def __init__(self, embedding_dim:int, max_seq_length=256) -> None:
         """
-        Initializing the positional encoding class
+        Initialize the positional encoding generator.
 
         Args:
-            embedding_dim (int): Embedding dimension
+            embedding_dim (int): Embedding dimension.
             max_seq_length (int, optional): Maximum sequence length. Defaults to 256.
         """
         self.max_seq_length = max_seq_length
         self.embedding_dim = embedding_dim
 
     def _create_positional_encoding(self, n=10000) -> jnp.array:
-        # making variables in accordance to understanding_positional_encoding.md
         """
-        Creates positional encoding for the given embedding layer.
+        Create sinusoidal positional encodings.
 
-        Parameters:
-            n (int, optional): the maximum sequence length. Defaults to 10000.
+        Args:
+            n (int, optional): Frequency parameter for encoding. Defaults to 10000.
 
         Returns:
-            jnp.Array: the positional encoding function, that describes the position of word in a given input
+            jnp.ndarray: Positional encoding matrix of shape (max_seq_length, embedding_dim).
         """
         # L = self.max_seq_length # length of the embeddings inside the embedding layer
         # d = self.embedding_dim # dimension of the embedding (amount of # in the vectors)

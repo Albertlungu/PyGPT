@@ -1,3 +1,9 @@
+"""
+Example implementation of Byte Pair Encoding (BPE) tokenization.
+
+This module demonstrates a basic BPE tokenizer that merges frequent byte pairs
+to build a vocabulary and compress text sequences.
+"""
 import numpy as np
 text = """
 """
@@ -69,6 +75,15 @@ for (p0,p1), idx in merges.items():
     vocab[idx] = vocab[p0] + vocab[p1]
 
 def decode(ids):
+    """
+    Decode a list of token IDs back to text.
+
+    Args:
+        ids (list): List of token IDs to decode.
+
+    Returns:
+        str: Decoded text string.
+    """
     tokens = b"".join(vocab[idx] for idx in ids)
     text = tokens.decode("utf-8", errors = 'replace')
     return text
@@ -77,6 +92,15 @@ def decode(ids):
 # print(decoded_text)
 
 def encode(text):
+    """
+    Encode text into a list of token IDs using learned BPE merges.
+
+    Args:
+        text (str): Input text to encode.
+
+    Returns:
+        list: List of token IDs.
+    """
     tokens = list(text.encode("utf-8"))
     while len(tokens) >= 2:
         stats = get_stats(tokens)
