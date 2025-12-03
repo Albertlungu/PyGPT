@@ -54,7 +54,11 @@ def save_alpaca(path:str) -> None:
     ds = ds.select(range(ds_len)) if ds_len > 0 else ds
     with open(path, "w", encoding="utf-8") as f:
         for idx, ex in enumerate(ds):
-            text = f"Instruction: {ex['instruction']}\nInput: {ex['input']}\nOutput: {ex['output']}\n"
+            text = (
+                f"Instruction: {ex['instruction']}\n"
+                f"Input: {ex['input']}\n"
+                f"Output: {ex['output']}\n"
+            )
             f.write(text + "\n\n")
 
             if (idx + 1) % 1000 == 0:

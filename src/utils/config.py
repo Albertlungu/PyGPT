@@ -1,3 +1,9 @@
+"""
+src/utils/config.py
+
+Ensures all jnp array elements have type jnp.float16
+"""
+
 import jax.numpy as jnp
 
 _old_array = jnp.array

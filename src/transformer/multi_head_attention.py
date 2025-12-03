@@ -1,3 +1,15 @@
+"""
+src/training/multi_head_attention.py
+
+Multi-head self-attention mechanism implemented with JAX for efficient autodiff and JIT
+compilation.
+
+This class implements the multi-head attention mechanism from "Attention is All You Need"
+(Vaswani et al., 2017). It splits the embedding dimension into multiple attention heads,
+allowing the model to jointly attend to information from different representation subspaces
+at different positions.
+"""
+
 import os
 import sys
 

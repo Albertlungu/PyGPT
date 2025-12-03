@@ -42,7 +42,7 @@ def convert_checkpoint(input_path:str, output_path:str) -> None:
     print(f"\nDone!")
     print(f"Input size:  {input_size:.1f} MB")
     print(f"Output size: {output_size:.1f} MB")
-    
+
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python src/utils/convert_checkpoint.py <input.pkl> <output.pkl>")

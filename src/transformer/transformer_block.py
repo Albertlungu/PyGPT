@@ -29,7 +29,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from src.embeddings.embeddings import EmbeddingLayer
 from src.transformer.multi_head_attention import MultiHeadAttention
 from src.transformer.feed_forward import FeedForward
-from src.tokenizer.tokenizer_class import BPETokenizer
+
 
 class TransformerBlock:
     """
@@ -97,7 +97,14 @@ class TransformerBlock:
         return output
 
     @staticmethod
-    def fwd(params, x, num_heads, head_dim, embedding_dim, dropout=0.0, training=True, rng_key=None):
+    def fwd(params:dict,
+            x:jnp.ndarray,
+            num_heads:int,
+            head_dim:int,
+            embedding_dim:int,
+            dropout=0.0,
+            training=True,
+            rng_key=None):
         """
         Forward pass through transformer block (pure function for JIT).
 

@@ -114,7 +114,7 @@ class OutputLayer:
                 - b_out (jnp.array): Updated bias vector
         """
         if grads is None:
-              grads = {
+            grads = {
                   'W_out': jnp.zeros_like(self.W_out),
                   'b_out': jnp.zeros_like(self.b_out)
               }
