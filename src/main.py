@@ -7,39 +7,35 @@ import os
 import sys
 import time
 import pickle
-# import numpy as np
-# import jax
-# import jax.numpy as jnp
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-# from datasets import load_dataset
 
 import src.utils.config
-from embeddings.embeddings import EmbeddingLayer
 from src.tokenizer.tiktoken_tokenizer import TikToken
-from tokenizer.tokenizer_class import BPETokenizer
 from training.train import Trainer
 
-def load_BPE(tokenizer_path:str) -> None:
+def load_bpe(tokenizer_path:str):
     """
     Loading the custom BPE tokenizer
 
     Args:
         tokenizer_path (str): Path to the pickled tokenizer file
+
+    Returns:
+        Unpickled tokenizer object
     """
     with open(tokenizer_path, "rb") as f:
         tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+
+    return tokenizer
 
 def save_token_ids(output_path:str) -> None:
     """
     Save token ids to a pickled file in order to avoid 10 minutes of prep time during training.
     """
 
-    with open("artifacts/tokenizer/tokenizer_alpaca.pkl", "rb") as f:
-        tokenizer = pickle.load(f)
-        tokenizer._ensure_vocab()
+    tokenizer = load_bpe("artifacts/tokenizer/tokenizer_alpaca.pkl")
 
     with open("training_data/alpaca.txt", "r") as f:
         content = f.read()
@@ -181,7 +177,6 @@ def main():
     full_checkpoint_path = "artifacts/training_logs/alpaca284_2025-11-22_19-53-01.pkl"
 
     # Try model-only first (smaller, faster)
-    import os
     if os.path.exists(model_only_path):
         checkpoint_path = model_only_path
         print("Loading lightweight model-only checkpoint...")

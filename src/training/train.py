@@ -24,7 +24,6 @@ from src.transformer.transformer_stack import TransformerStack
 from src.transformer.transformer_block import TransformerBlock
 from src.transformer.output_layer import OutputLayer
 from src.training.loss_function import CrossEntropyLoss
-from src.tokenizer.tiktoken_tokenizer import TikToken
 from src.optimizers.adam import AdamNested
 
 
@@ -42,7 +41,18 @@ class Trainer:
         Embeddings → TransformerStack (4-6 blocks) → OutputLayer → Loss
     """
 
-    def __init__(self, tokenizer:object, training_data=None, token_ids=None, lr=1e-4, num_blocks=4, num_heads=8, embedding_dim=256, max_seq_length=256, use_lr_schedule=True, warmup_steps=500, dropout=0.0):
+    def __init__(self,
+                tokenizer:object,
+                training_data=None,
+                token_ids=None,
+                lr=1e-4,
+                num_blocks=4,
+                num_heads=8,
+                embedding_dim=256,
+                max_seq_length=256,
+                use_lr_schedule=True,
+                warmup_steps=500,
+                dropout=0.0):
         """
         Initialize Trainer with model architecture.
 
@@ -54,7 +64,8 @@ class Trainer:
             num_heads (int): Number of attention heads per block (default: 8)
             embedding_dim (int): Embedding dimension (default: 256, must be divisible by num_heads)
             max_seq_length (int): Maximum sequence length for chunking (default: 256)
-            use_lr_schedule (bool): Whether to use learning rate warmup and cosine decay (default: True)
+            use_lr_schedule (bool): Whether to use learning rate warmup and cosine decay 
+                (default: True)
             warmup_steps (int): Number of warmup steps (default: 500)
             dropout (float): Dropout probability (default: 0.0)
         """
@@ -182,7 +193,12 @@ class Trainer:
         eos_token_id = self.tokenizer.eos_token_id
 
         @jax.jit
-        def loss_and_grad_fn(embed_params, stack_params, output_params, final_ln_params, token_ids, targets):
+        def loss_and_grad_fn(embed_params:dict,
+                            stack_params:dict,
+                            output_params:dict,
+                            final_ln_params:dict,
+                            token_ids:list,
+                            targets:jnp.ndarray):
             """
             JIT-compiled loss and gradient computation.
 
@@ -190,7 +206,8 @@ class Trainer:
                 embed_params (dict): dictionary containing embedding parameters
                 stack_params (dict): dictionary containing stack parameters
                 output_params (dict): dictionary containing output parameters
-                final_ln_params (dict): dictionary containing parameters from final layer normalization
+                final_ln_params (dict): dictionary containing parameters from
+                    final layer normalization
                 token_ids (list): list of token ids
                 targets (jnp.ndarray): Next token IDs the model is supposed to predict
             """
@@ -464,7 +481,12 @@ class Trainer:
 
         return timestamped_path
 
-    def train(self, epochs=10, batch_size=20, checkpoint_path="artifacts/training_logs/training_logs.pkl", save_every=10, prompt=""):
+    def train(self,
+              epochs=10,
+              batch_size=20,
+              checkpoint_path="artifacts/training_logs/training_logs.pkl",
+              save_every=10,
+              prompt=""):
         """
         Train the model with JAX autodiff.
         Automatically saves checkpoints with timestamps.
@@ -745,7 +767,6 @@ class Trainer:
         """
         Save model weights as compressed NumPy arrays (smallest file size).
         """
-        import numpy as np
 
         # Collect all parameters as numpy arrays
         save_dict = {
@@ -850,7 +871,13 @@ class Trainer:
             print(f"Config: {checkpoint['config']}")
         print("Ready for inference!")
 
-    def generate(self, prompt, max_length=50, temperature=0.7, top_k=40, repetition_penalty=1.2, debug=False):
+    def generate(self,
+                 prompt:str,
+                 max_length=50,
+                 temperature=0.7,
+                 top_k=40,
+                 repetition_penalty=1.2,
+                 debug=False):
         """
         Generate text using the trained model (JAX-based).
 

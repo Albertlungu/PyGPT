@@ -82,7 +82,7 @@ def tokenize_data(input_path:str, output_path:str) -> None:
         input_path (str): Path of the non-tokenized .txt dataset file.
         output_path (str): Output path to which function writes.
     """
-    with open(input_path, "r") as f:
+    with open(input_path, "r", encoding="utf-8") as f:
         data = f.read()
 
     training_texts = [doc.strip() for doc in data.split('\n\n') if doc.strip()]
@@ -124,7 +124,7 @@ def test_tokenized(path:str) -> None:
     Args:
         path (str): Path to the pickled tokenized dataset
     """
-    with open(path, "rb") as f:
+    with open(path, "rb", encoding="utf-8") as f:
         data = pickle.load(f)
 
     tokenizer = TikToken()
@@ -137,4 +137,3 @@ if __name__ == "__main__":
     tokenize_data("training_data/alpaca.txt", "training_data/tiktoken_alpaca.pkl")
     main()
     test_tokenized("training_data/tiktoken_alpaca.pkl")
-    pass

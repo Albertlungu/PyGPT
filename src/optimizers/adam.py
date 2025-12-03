@@ -6,7 +6,6 @@ Implementation of Adam Nested optimizer for better and faster training, as well 
 import jax
 import jax.numpy as jnp
 import numpy as np
-from typing import Any, Dict, List, Tuple, Union
 
 class AdamNested:
     def __init__(self, lr=1e-4, beta1=0.9, beta2=0.999, epsilon=1e-8, warmup_steps=0, total_steps=None, schedule='constant'):

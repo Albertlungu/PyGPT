@@ -1,11 +1,32 @@
+"""
+src/tokenizer/tokenizer_class.py
+
+Custom tokenizer class using Byte-pair encoding.
+
+Provides:
+    extract_wiki_text (function): Extracting wiki text from a wiki .xml dump
+
+    BPETokenizer (class):
+        - Rebuilds vocab
+        - Makes sure no tokens are outside of vocab
+        - Makes merges
+        - Has decode and encoding functions
+
+    clean_alpaca (function):
+        Cleans the alpaca or any other text file of things like "Input" which may take up some
+            tokens in the tokenizer.
+
+The tokenizer is saved as a pickled file.
+"""
+
+
 import os
 import pickle
 import sys
-
-import numpy as np
 import re
-from tqdm import tqdm
 import xml.etree.ElementTree as ET
+
+from tqdm import tqdm
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
@@ -216,6 +237,9 @@ def clean_alpaca_text(file_path):
     return " ".join(clean_text)
 
 def main():
+    """
+    Main function to provide CLI for BPETokenizer
+    """
     # extract_wiki_text('tokenizer_training_data/enwiki-latest-pages-articles-multistream1.xml-p1p41242', 'tokenizer_training_data/all_wiki_text.txt')
     # print("Extracted wiki text")
 
@@ -254,6 +278,12 @@ def main():
     #     tokenizer = pickle.load(f) # loading the tokenizer object from the pickle file
 
 def test_tokenizer(path):
+    """
+    Quick tokenizer test to make sure it worked
+
+    Args:
+        path (str): path to tokenizer
+    """
     with open("artifacts/tokenizer.pkl", "rb") as f:
         tokenizer = pickle.load(f)
         tokenizer._ensure_vocab()
