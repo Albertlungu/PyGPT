@@ -4,8 +4,8 @@ Positional encoding for transformer models.
 This module provides sinusoidal positional encodings to give the model
 information about token positions in sequences.
 """
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 import numpy as np
 
 class PositionalEncoding:

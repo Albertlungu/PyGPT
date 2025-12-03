@@ -12,8 +12,8 @@ import os
 import pickle
 import sys
 
-import jax.numpy as jnp
-import jax
+import jax.numpy as jnp # pylint: disable=no-member
+import jax # pylint: disable=no-member
 import numpy as np
 import xml.etree.ElementTree as ET
 

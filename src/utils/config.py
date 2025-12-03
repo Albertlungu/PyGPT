@@ -4,7 +4,7 @@ src/utils/config.py
 Ensures all jnp array elements have type jnp.float16
 """
 
-import jax.numpy as jnp
+import jax.numpy as jnp # pylint: disable=no-member
 
 _old_array = jnp.array
 def safe_array(*args, **kwargs):

@@ -8,7 +8,7 @@ All datasets are saved as .txt files, and must be tokenized before training usin
     src/tokenizer/tiktoken_tokenizer.py
 """
 
-from datasets import load_dataset
+from datasets import load_dataset # pylint: disable=no-member
 
 
 def save_dolly(path:str) -> None:

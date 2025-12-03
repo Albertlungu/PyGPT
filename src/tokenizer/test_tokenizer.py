@@ -1,6 +1,5 @@
 # Save as check_merges.py and run on your GPU machine
 import pickle
-from tokenizer_class import BPETokenizer
 
 with open('artifacts/tokenizer/tokenizer_alpaca.pkl', 'rb') as f:
     tokenizer = pickle.load(f)

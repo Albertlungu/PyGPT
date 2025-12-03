@@ -3,8 +3,8 @@ Implementation of Adam Nested optimizer for better and faster training, as well 
     learning rate schedule.
 """
 
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 import numpy as np
 
 class AdamNested:

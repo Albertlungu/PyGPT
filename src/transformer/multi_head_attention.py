@@ -13,12 +13,12 @@ at different positions.
 import os
 import sys
 
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.embeddings.embeddings import EmbeddingLayer
-from src.training.loss_function import CrossEntropyLoss
+# from src.training.loss_function import CrossEntropyLoss
 
 class MultiHeadAttention:
     """

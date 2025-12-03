@@ -19,8 +19,8 @@ Classes:
 import os
 import sys
 
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer

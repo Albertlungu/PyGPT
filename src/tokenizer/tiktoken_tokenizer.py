@@ -6,7 +6,7 @@ Although you can use the custom BPE tokenizer, this is faster at the actual toke
 
 import pickle
 
-import tiktoken
+import tiktoken # pylint: disable=no-member
 from tqdm import tqdm
 
 class TikToken:

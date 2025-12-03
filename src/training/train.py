@@ -11,8 +11,8 @@ import sys
 
 from datetime import datetime
 import gc
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 import jax.tree_util as tree
 import numpy as np
 from tqdm import tqdm

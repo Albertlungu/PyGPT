@@ -6,8 +6,8 @@ Loss function class that calculates loss of the model using Cross Entropy Loss. 
 import os
 import sys
 
-import jax
-import jax.numpy as jnp
+import jax # pylint: disable=no-member
+import jax.numpy as jnp # pylint: disable=no-member
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
