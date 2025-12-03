@@ -1,7 +1,17 @@
+"""
+data_loader.py
+
+This file is used to load any datasets the user desires.
+It already includes the Dolly 15k dataset, Alpaca, and TriviaQA datasets from HuggingFace.
+All datasets are saved as .txt files, and must be tokenized before training using either the main.py
+    save_token_ids() function or the tokenize_data() function inside of
+    src/tokenizer/tiktoken_tokenizer.py
+"""
+
 from datasets import load_dataset
 
 
-def save_dolly(path):
+def save_dolly(path:str) -> None:
     """
     Load the Databricks Dolly-15k dataset and save it in a formatted text file.
 
@@ -19,40 +29,19 @@ def save_dolly(path):
     with open(path, 'w', encoding='utf-8') as f:
         for idx, ex in enumerate(ds):
             # Create formatted entry
-            text = f"Instruction:\n{ex['instruction']}\nContext:\n{ex['context']}\nResponse:\n{ex['response']}\n"
-            f.write(text + "\n")
+            text = (
+                f"Instruction: {ex['instruction']}\n"
+                f"Input: {ex['context']}\n"
+                f"Output: {ex['response']}\n"
+                )
+            f.write(text + "\n\n")
 
             if (idx + 1) % 1000 == 0:
                 print(f"Processed {idx + 1}/{len(ds)} examples")
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
-def save_general_knowledge(path):
-    """
-    Load the MuskumPillerum/General-Knowledge dataset from HuggingFace
-
-    Args:
-        path (str): Output file path for the formatted dataset
-    """
-    print("Loading dataset:")
-    dataset_len = 10000
-    ds = load_dataset("MuskumPillerum/General-Knowledge")
-    print(ds)
-    ds = ds['train']
-    ds = ds.select(range(dataset_len)) if dataset_len > 0 else ds
-    print(f"Loaded {dataset_len} examples")
-
-    with open(path, "w", encoding="utf-8") as f:
-        for idx, ex in enumerate(ds):
-            text = f"Instruction:\n{ex['Question']}\nResponse:\n{ex['Answer']}\n"
-            f.write(text + "\n")
-
-            if (idx + 1) % 1000 == 0:
-                print(f"Processed {idx + 1}/{len(ds)} examples")
-
-    print(f"Successfully saved {len(ds)} examples to {path}")
-
-def save_alpaca(path):
+def save_alpaca(path:str) -> None:
     """
     Load the Alpaca dataset from HuggingFace
 
@@ -69,11 +58,17 @@ def save_alpaca(path):
             f.write(text + "\n\n")
 
             if (idx + 1) % 1000 == 0:
-                    print(f"Processed {idx + 1}/{len(ds)} examples")
+                print(f"Processed {idx + 1}/{len(ds)} examples")
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
-def save_trivia_qa(path):
+def save_trivia_qa(path:str) -> None:
+    """
+    Saves mandarjoshi/trivia_qa dataset from HuggingFace using Datasets module
+
+    Args:
+        path (str): Output path for the trivia_qa dataset .txt file
+    """
     ds_len = 20000
     ds = load_dataset("mandarjoshi/trivia_qa", "rc")
     ds = ds['train']
@@ -99,7 +94,7 @@ def save_trivia_qa(path):
 
     print(f"Successfully saved {len(ds)} examples to {path}")
 
-def save_general_instruct(path:str, ds_len:int):
+def save_general_instruct(path:str, ds_len:int) -> None:
     """
     Save general instruction dataset from HuggingFace's Teknium/GPTeacher-General-Instruct dataset
 
@@ -131,7 +126,7 @@ def save_general_instruct(path:str, ds_len:int):
     print(f"Skipped {skipped_count} examples")
 
 
-def load_text_file(path):
+def load_text_file(path:str) -> list:
     """
     Load a text file for training.
 
@@ -154,4 +149,3 @@ if __name__ == "__main__":
     # save_general_knowledge("training_data/general_knowledge.txt")
     save_alpaca("training_data/alpaca.txt")
     # save_trivia_qa("training_data/trivia.txt")
-    pass
