@@ -1,13 +1,25 @@
-import numpy as np
-import pickle
-import sys
+"""
+src/transformer/feed_forward.py
+
+Defines the FeedForward class, a two-layer feed-forward network used in transformer architectures.
+The network applies a linear transformation, a GELU activation, and another linear transformation to
+token embeddings.
+
+Provides:
+- Initialization of weights and biases with proper scaling.
+- Forward passes for both static and instance-based computation.
+- Gradient computation for training with JAX autodiff.
+- Optional dropout support during training.
+"""
+
 import os
+import sys
+
 import jax
 import jax.numpy as jnp
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.embeddings.embeddings import EmbeddingLayer
-from src.tokenizer.tokenizer_class import BPETokenizer
 from src.training.loss_function import CrossEntropyLoss
 
 class FeedForward():
@@ -31,15 +43,18 @@ class FeedForward():
 
         Args:
             token_ids (list): List of token IDs representing input sequences.
-            embeddings (EmbeddingLayer): An instance of EmbeddingLayer to convert token IDs to embeddings.
+            embeddings (EmbeddingLayer): An instance of EmbeddingLayer to convert token
+                IDs to embeddings.
 
         Attributes:
             embedding_dim (int): Dimensionality of the embeddings.
             ff_dim (int): Dimensionality of the feed-forward hidden layer (4 times embedding_dim).
-            W1 (jnp.ndarray): Weight matrix for the first linear layer of shape (embedding_dim, ff_dim).
-            B1 (jnp.ndarray): Bias vector for the first linear layer of shape (ff_dim,).
-            W2 (jnp.ndarray): Weight matrix for the second linear layer of shape (ff_dim, embedding_dim).
-            B2 (jnp.ndarray): Bias vector for the second linear layer of shape (embedding_dim,).
+            W1 (jnp.ndarray): Weight matrix for the first linear layer.
+                Shape (embedding_dim, ff_dim).
+            B1 (jnp.ndarray): Bias vector for the first linear layer. Shape: (ff_dim).
+            W2 (jnp.ndarray): Weight matrix for the second linear layer
+                Shape: (ff_dim, embedding_dim).
+            B2 (jnp.ndarray): Bias vector for the second linear layer Shape: (embedding_dim).
             ff_input (jnp.ndarray): Input embeddings to the feed-forward network.
         """
         # Use the actual embedding dimension from the embeddings instance, not the class default
@@ -155,6 +170,16 @@ class FeedForward():
         }
 
     def get_params_and_grads(self, grads):
+        """
+        Getting parameters and gradients for feedforward network
+
+        Args:
+            grads (dict): Dictionary containing gradients from FFN
+
+        Returns:
+            list:
+                dict
+        """
         return [
             {'value': self.W1, 'grad': grads['dW1']},
             {'value': self.B1, 'grad': grads['dB1']},

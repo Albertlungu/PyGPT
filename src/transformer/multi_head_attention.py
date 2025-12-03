@@ -1,19 +1,22 @@
-import pickle
-import sys
 import os
+import sys
+
 import jax
 import jax.numpy as jnp
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from src.embeddings.embeddings import EmbeddingLayer
 from src.training.loss_function import CrossEntropyLoss
 
 class MultiHeadAttention:
     """
-      Multi-head self-attention mechanism implemented with JAX for efficient autodiff and JIT compilation.
+      Multi-head self-attention mechanism implemented with JAX for efficient autodiff and JIT
+      compilation.
 
-      This class implements the multi-head attention mechanism from "Attention is All You Need" (Vaswani et al., 2017).
-      It splits the embedding dimension into multiple attention heads, allowing the model to jointly attend to
-      information from different representation subspaces at different positions.
+      This class implements the multi-head attention mechanism from "Attention is All You Need"
+      (Vaswani et al., 2017). It splits the embedding dimension into multiple attention heads,
+      allowing the model to jointly attend to information from different representation subspaces
+      at different positions.
 
       Attributes:
           embedding_dim (int): Dimensionality of input embeddings (e.g., 256)
@@ -32,6 +35,8 @@ class MultiHeadAttention:
         Args:
             embedding_layer (EmbeddingLayer): Instance of EmbeddingLayer class
             num_heads (int, optional): Number of heads for multi-head attention. Defaults to 8.
+            num_blocks(int, optional): Number of transformer blocks. Defaults to 1.
+            dropout (float, optional): Dropout probability. Defaults to 0.0.
         """
         self.embedding_dim = embedding_layer.embedding_dim
 
@@ -51,7 +56,14 @@ class MultiHeadAttention:
         self.W_O = jax.random.normal(k4, (self.embedding_dim, self.embedding_dim)) * residual_scale
 
     @staticmethod
-    def fwd(params, x, num_heads, head_dim, embedding_dim, dropout=0.0, training=True, rng_key=None):
+    def fwd(params:dict,
+            x:jnp.ndarray,
+            num_heads:int,
+            head_dim:int,
+            embedding_dim:int,
+            dropout=0.0,
+            training=True,
+            rng_key=None):
         """
         Pure function for jit computation
 
@@ -114,18 +126,33 @@ class MultiHeadAttention:
 
     @staticmethod
     @jax.jit
-    def fwd_with_cache(params, x, num_heads, head_dim, embedding_dim, past_kv=None):
+    def fwd_with_cache(params:dict,
+                       x:jnp.ndarray,
+                       num_heads:int,
+                       head_dim:int,
+                       embedding_dim:int,
+                       past_kv=None):
         """
         Fwd pass with KV cache for faster generation
 
         Args:
             params (dict): Dictionary with W_Q, W_K, W_V, and W_O
-            x (jnp.jnparray): the new token embeddings only. Shape [batch_size, new_seq_len, embedding_dim]
+            x (jnp.ndarray): the new token embeddings only.
+                Shape [batch_size, new_seq_len, embedding_dim]
                 during gen, new_seq_len will be = 1
             num_heads (int): number of attention heads
             head_dim (int): Dimensions/head
             embedding_dim (int): Total embedding dimension
-            past_kv (tuple, optional): Tuple of (past_K, past_V) from previous step. Defaults to None.
+            past_kv (tuple, optional): Tuple of (past_K, past_V) from previous step.
+                Defaults to None.
+
+        Returns:
+            tuple:
+                - out (jnp.ndarray[int, int, int]): Final attention output after
+                    combining heads and W_O
+                - tuple:
+                    - K (jnp.ndarray[int, int, int]): Key tensor in KV cache
+                    - V (jnp.ndarray[int, int, int]): Value tensor in KV cache
         """
         batch_size, new_seq_len, _ = x.shape
 
@@ -177,8 +204,8 @@ class MultiHeadAttention:
         Most efficient version of backprop using JAX's vjp
 
         Args:
-            x: input (batch, seq_len, embedding_dim)
-            d_output: gradient from next layer (batch, seq_len, embedding_dim)
+            x (jnp.array): input (batch, seq_len, embedding_dim)
+            d_output (jnp.array): gradient from next layer (batch, seq_len, embedding_dim)
 
         Returns:
             grads: dict of parameter gradients
@@ -215,6 +242,16 @@ class MultiHeadAttention:
         ]
 
     def get_params(self):
+        """
+        Gets attention layer parameters
+
+        Returns:
+            dict:
+                - W_Q (jnp.array): Updated query weights
+                - W_K (jnp.array): Updated key weights
+                - W_V (jnp.array): Updated value weights
+                - W_O (jnp.array): Updated output weights
+        """
         return {
             "W_Q": self.W_Q,
             "W_K": self.W_K,

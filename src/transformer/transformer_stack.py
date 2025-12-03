@@ -1,5 +1,10 @@
-import jax
-import jax.numpy as jnp
+"""
+src/transformer/transformer_stack.py
+
+This file contains the TransformerStack class, which is used to stack multiple transformer blocks
+    on top of one another.
+"""
+
 from src.transformer.transformer_block import TransformerBlock
 from src.embeddings.embeddings import EmbeddingLayer
 

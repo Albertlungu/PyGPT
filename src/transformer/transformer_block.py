@@ -1,7 +1,29 @@
+"""
+src/transformer/transformer_block.py
+
+The TransformerBlock class representing a single transformer block, computing both the forward and
+    backward pass.
+
+Each transformer block consists of a multi head attention block followed by a feedforward network,
+with residual connections and layer normalization applied at each sublayer (after the use of mha,
+then ffn)
+
+Classes:
+    TransformerBlock:
+        Implements a transformer block with:
+            - MHA Self-attention
+            - Feedforward Network (FFN)
+            - Layer norm and residual connection
+            - Fwd pass with optional dropout and KV cache
+            - Gradient computation for backprop
+            - Parameter access
+"""
+
+import os
+import sys
+
 import jax
 import jax.numpy as jnp
-import pickle
-import sys, os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer
@@ -18,7 +40,8 @@ class TransformerBlock:
         embedding_layer (EmbeddingLayer): Embedding layer used to convert token_ids into embeddings.
         attention_layer (Attention): The attention mechanism for the block.
         embedding_dim (integer): The size of the vector used to represent each token in the model.
-        input_embeddings (3D tensor): The np.ndarray that represents my input tokens as a vector quantity.
+        input_embeddings (3D tensor): The np.ndarray that represents the
+            input tokens as a vector quantity.
         ffn (FeedForward): Feedforward network for the block.
         gamma_1, beta_1: Learnable parameters for first layer normalization.
         gamma_2, beta_2: Learnable parameters for second layer normalization.
@@ -30,7 +53,8 @@ class TransformerBlock:
         Initializing instance variables for the TransformerBlock class
 
         Args:
-            token_ids (list): IDs of input tokens given to model (padding is already applied in FeedForward layer)
+            token_ids (list): IDs of input tokens given to model
+                (padding is already applied in FeedForward layer)
             embedding_layer (EmbeddingLayer): EmbeddingLayer class. Takes no arguments
 
         Returns:
@@ -155,7 +179,8 @@ class TransformerBlock:
             num_heads (int): Number of attention heads
             head_dim (int): Dimension of each head
             embedding_dim (int): Embedding dimension
-            past_kv (jnp.jnparray, optional): Cached K and V from the layer's other calls. Defaults to None.
+            past_kv (jnp.jnparray, optional): Cached K and V from the layer's other calls.
+                Defaults to None.
 
         Returns:
             output: (batch, 1, embedding_dim)
@@ -278,4 +303,3 @@ class TransformerBlock:
         ])
 
         return result
-

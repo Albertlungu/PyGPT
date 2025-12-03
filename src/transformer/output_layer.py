@@ -1,15 +1,42 @@
-import pickle
-import sys, os
+"""
+src/transformer/output_layer.py
+
+Defines the OutputLayer class for a transformer model.
+
+The OutputLayer maps the final hidden states from the transformer blocks to logits. It gives forward
+and backward passes, as well as token prediction methods.
+
+Classes:
+    OutputLayer:
+        The transformer output layer, containing:
+            - Weight and bias parameters
+            - Forward pass computation
+            - Gradient computation for backprop
+            - Parameter access
+            - Prediction of next token
+"""
+
+import os
+import sys
+
 import jax
 import jax.numpy as jnp
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.embeddings.embeddings import EmbeddingLayer
-from src.tokenizer.tokenizer_class import BPETokenizer
-from src.transformer.transformer_block import TransformerBlock
 
 
 class OutputLayer:
+    """
+    Output Layer of the transformer
+
+    Attributes:
+        embedding_layer (object): Instance of the EmbeddingLayer class
+        embedding_dim (int): Embedding dimension
+        vocab_size (int): Vocabulary size from tokenizer
+        W_out (jnp.array[int, int]): Weight matrix, based on embedding_dim and vocab_size
+        b_out (jnp.array[int]): Bias vector, shape: (vocab_size)
+    """
     def __init__(self, embedding_layer: EmbeddingLayer):
         """
         Initializes instance attributes for OutputLayer class.
@@ -41,13 +68,33 @@ class OutputLayer:
         # print(np.shape(self.logits))
         return logits
 
-    def get_params(self):
+    def get_params(self) -> dict:
+        """
+        Gets output layer parameters.
+
+        Returns:
+            dict: Dictionary containing output layer parameters (W_out and b_out)
+        """
         return {
             'W_out': self.W_out,
             'b_out': self.b_out
         }
 
     def compute_grads(self, transformer_output, d_output):
+        """
+        Backward function
+
+        Args:
+            transformer_output (jnp.array[int, int, int]): Output from last transformer block.
+                Shape: [batch_size, seq_len, embedding_dim]
+            d_output (jnp.ndarray[int, int, int]): Gradient of loss w.r.t. output layer logits.
+                Shape: [batch_size, seq_len, embedding_dim]
+
+        Returns:
+            tuple:
+                - grads_params (dict[str, jnp.array]): Gradients w.r.t. output layer parameters
+                - d_input (jnp.array): Gradient w.r.t. transformer_output, same shape as input
+        """
         params = self.get_params()
         output, vjp_fn = jax.vjp(
             lambda p, x: self.fwd(p, x),
@@ -58,6 +105,14 @@ class OutputLayer:
         return grads_params, d_input
 
     def get_params_and_grads(self):
+        """
+        Returns parameters and gradients of OutputLayer
+
+        Returns:
+            dict:
+                - W_out (jnp.array): Updated weight matrix
+                - b_out (jnp.array): Updated bias vector
+        """
         if grads is None:
               grads = {
                   'W_out': jnp.zeros_like(self.W_out),
@@ -89,4 +144,3 @@ class OutputLayer:
         probs = jax.nn.softmax(scaled_logits)
         predicted_tokens = jnp.argmax(probs, axis = -1)
         return predicted_tokens
-
