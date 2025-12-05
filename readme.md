@@ -9,20 +9,20 @@
 # PyGPT — A Learning LLM Project
 
 ## Overview
-It's a GPT-like LLM that uses a relatively small wikipedia dump as a source, so you already can deduce that it probably isn't very smart. 
-This is used as more of a learning experience for myself to understand the concepts of what AI is, and how an LLM is made. 
+It's a GPT-like LLM that uses a plethora of sources that are visible in the `data_loader.py` file. 
+This is used as more of a learning experience for myself to understand the concepts of what AI is, and how an LLM is made, and is fully customizable.
 
 ## Libraries used
 - numpy
 - JAX-metal (made to run on mac)
-  - Or JAX (Cuda)
+  - Or JAX (CUDA)
 - pickle
 - sys
 - os
 - matplotlib
 
 ## Installation and Setup (MacOS METAL)
-This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below. Or, you could simply use the `metal_setup.sh` file after cloning.
+This program requires the use of older Python releases, most notably 3.10.x. To do this, I recommend using PyEnv. The instructions for this are given below. Or, you could simply use the `./metal_setup.sh` file after cloning.
 
 
 ```bash
@@ -82,7 +82,7 @@ pip install -r requirements.txt
 
 ## Installation and Setup (Cuda-enabled GPU)
 
-Either run the `cuda_setup.sh` file
+Either run the `./cuda_setup.sh` file, or:
 
 ```bash
 git clone "https://github.com/Albertlungu/PyGPT.git" #Clone the github repository
@@ -301,7 +301,7 @@ A transformer-based model is made up of either an encoder or decoder, or both. T
 This description will be focusing on the decoder architecture, since that is what is used in this model.
 
 ---
-#### Is Attention all You Need?
+### Is Attention all You Need?
 Using the famous paper from Google Mind, [Attention Is All You Need](https://arxiv.org/pdf/1706.03762), I have created an attention model in the ways which are described in this documentation.
 
 This mode, as it currently stands, has architecture implemented for both single head and multi head attention. These can be explored in the files `src/transformer/single_head_attention.py` and `src/transformer/multi_head_attention.py` respectively. The single head attention is a remnant from the branch using NumPy, and does not use JAX or GPU-based processing. 
@@ -325,7 +325,7 @@ self.W_O = np.random.randn(self.embedding_dim, self.embedding_dim) * 0.01
 All weights except for `W_O` each have shape `(embedding_dim, embedding_dim)`, which is more efficient than `(head_dim, head_dim)`
 >> Again, just like any other learnable parameters, these keys are declared as random vector values, and modified later.
 
-##### The forward method:
+#### The forward method:
 ```python
 Q = x @ params['W_Q']
 K = x @ params['W_K']
@@ -446,6 +446,30 @@ Which works because of matrix multiplication, which requires the last two dimens
 - First two dimensions: `[batch, num_heads]` - these are just batched
 
 
+#### The backward pass:
+The backward pass is made with JAX's automatic gradient function, `jax.vjp`:
+
+```python
+params = self.get_params()
+output, vjp_fn = jax.vjp(
+    lambda p, x_: self.fwd(p, x_, self.num_heads, self.head_dim, self.embedding_dim), params, x)
+grads_params, d_input = vjp_fn(d_output)
+return grads_params, d_input
+```
+
+Here, we first get the parameters calculated from the forward pass using the `get_params()` method, which returns a dictionary:
+```python
+return {
+    "W_Q": self.W_Q,
+    "W_K": self.W_K,
+    "W_V": self.W_V,
+    "W_O": self.W_O
+}
+```
+
+VJP stands for Vector-Jacobian Product, which is passed:
+`
+
 
 ## How PyGPT Works
 
@@ -468,27 +492,8 @@ flowchart TD
     style C fill:#1E3A8A,stroke:#1E40AF,stroke-width:2px
     style D fill:#15803D,stroke:#166534,stroke-width:2px
     style E fill:#B91C1C,stroke:#991B1B,stroke-width:2px
-    style F fill:#C19A00,stroke:#8B7500,stroke-width:2px    
+    style F fill:#C19A00,stroke:#8B7500,stroke-width:2px
     style G fill:#6B21A8,stroke:#4C1D95,stroke-width:1px,stroke-dasharray: 5 5
     style H fill:#6B21A8,stroke:#4C1D95,stroke-width:1px,stroke-dasharray: 5 5
     style I fill:#6B21A8,stroke:#4C1D95,stroke-width:1px,stroke-dasharray: 5 5
 ```
-
-
-
-## Project status
-- [x] Tokenizer
-- [x] Embedding Layer + Positional Encodings
-- [x] Feed Forward Layer
-- [x] Attention module (single head)
-- [x] Transformer Block
-- [x] Output Layer
-- [x] Loss Function
-- [x] Training
-- [x] Use JAX to use GPU for faster processing times - create different branch in git
-- [x] Multi-head attention
-- [x] Stack transformer blocks
-- [ ] **MAYBE**: Change tokenizer from BPE to WordPiece or SentencePiece
-- [x] Optimization (optional)
-- [ ] Add readme files for each part of the model for understanding
-- [ ] React + Next.js + Tailwind CSS Frontend
