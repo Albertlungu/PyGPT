@@ -11,11 +11,11 @@ https://machinelearningmastery.com/a-gentle-introduction-to-positional-encoding-
 import os
 import pickle
 import sys
+import xml.etree.ElementTree as ET
 
 import jax.numpy as jnp # pylint: disable=no-member
 import jax # pylint: disable=no-member
 import numpy as np
-import xml.etree.ElementTree as ET
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 from src.tokenizer.tokenizer_class import BPETokenizer
