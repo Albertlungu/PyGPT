@@ -268,11 +268,11 @@ self.embeddings = jax.random.normal(self.key, (self.vocab_size, self.embedding_d
 ```
 
 Here, `key` is effectively JAX's overly complicated way to do NumPy's `np.random.randn`. It creates a random floating point number.
-In the next line, I declare embeddings as being a random selection of floating point numbers. The reason I do this is so that my model has a starting point. It does not start with the training and then make the embeddings from there, but the opposite. 
-- First, I generate a matrix (called embedding matrix) of shape (vocab_size, embedding_dim) full of embeddings. Each of my embeddings contain `embedding_dim` numbers inside of them. 
+In the next line, I declare embeddings as being a random selection of floating point numbers. The reason I do this is so that my model has a starting point. It does not start with the training and then make the embeddings from there, but the opposite.
+- First, I generate a matrix (called embedding matrix) of shape (vocab_size, embedding_dim) full of embeddings. Each of my embeddings contain `embedding_dim` numbers inside of them.
 > For example, if I have `embedding_dim = 256` and `vocab_size = 32000`, I would have 32000 embeddings, each with 256 random numbers inside of it.
-> 
-For the next step, we have to understand batching, and how it works. 
+>
+For the next step, we have to understand batching, and how it works.
 
 _To note:_ a batch is a collection of sequences, used to make training faster and more efficient
 A single batch of token IDs has a shape of `(batch_size, sequence_length a.k.a max_seq_len)`
@@ -467,9 +467,54 @@ return {
 }
 ```
 
-VJP stands for Vector-Jacobian Product, which is passed:
-`
+VJP stands for Vector-Jacobian Product, which is passed the fwd method of the MHA class, and automatically calculates gradients for backpropagation.
 
+### Transformer Block and Stack:
+
+The transformer block is like the glue that ties everything together. It is where the forward passes of the FFN and MHA layer are put together, and are used to get normalized and stable outputs.
+
+#### What is layer normalization?
+Layer normalization is used to ensure stable training by flattening every feature and taking away any excessively large number ranges. It makes it so that each of these features have mean 0 and variance 1.
+
+> [!NOTE]
+> ***Mean***: the average of all the numbers in the embedding:
+>
+> For a vector $$ x = [x_1, x_2, ..., x_n] $$
+> The formula becomes:
+>$$ \mu = \frac{1}{n}\sum_{i=1}^n x_i $$
+> ***Variance***: measure of how spread out the numbers are from that same mean (range):
+>
+>$$\sigma^2=\frac{1}{n}\sum_{i=1}^n(x_i-\mu)^2$$
+> Where:
+> - $x_i$ is the *i-th* number in the vector $x$, also called the **feature**.
+> - $n$ is the number of features in the vector, or in this case, $n = \text{embedding\_dim}$
+> - $\mu$ is the mean that was calculated using the earlier mathematical model.
+>
+> $(x_i - \mu)$ tells us how far each feature is from the mean, and it is squared so that positive and negative distances don't cancel out, but also so that big deviations become more important.
+>
+> Finally, it is divided by the $n$ to get the average of all the deviations
+
+The next step in layer norm is the actual calculation using mean and variance:
+
+$$
+\hat{x} = \frac{x_i-\mu}{\sqrt{\sigma^2+\epsilon}}
+$$
+
+Here, we subtract the mean, $\mu$ from the original features, $x_i$, centering each feature around zero.
+
+Then, we divide by the standard deviation, being $\sqrt{\sigma^2-\epsilon}$, where $\epsilon$ is a very small positive number added for numerical stability. This is so that if the variance $\sigma^2$ is very close to zero, we avoid division by zero error.
+
+Finally, we apply $\gamma$ and $\beta$, being learnable parameters. `gamma`, $\gamma$, rescales the normalized value, while `beta`, $\beta$, shifts the normalized values. Think of them like the weights and biases in the FFN.
+
+#### The Forward Pass:
+
+Firstly, the fwd pass of the transformer block consists of two sublayers:
+- LayerNorm → MultiHeadAttention
+- LayerNorm → FeedForward Network
+
+In the first sublayer, it sets a residual variable, defined by `residual_1 = x`, where `x` are the input embeddings, of shape [batch, seq_len, embedding_dim].
+
+Then, `ln1_out` is declared, being defined as the first layer normalization, taking the parameters of `gamma1` and `beta1`.
 
 ## How PyGPT Works
 
