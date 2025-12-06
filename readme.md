@@ -487,8 +487,7 @@ Layer normalization is used to ensure stable training by flattening every featur
 >$$\sigma^2=\frac{1}{n}\sum_{i=1}^n(x_i-\mu)^2$$
 > Where:
 > - $x_i$ is the *i-th* number in the vector $x$, also called the **feature**.
-> - $n$ is the number of features in the vector, or in this case,
->   $$n = \text{embedding\_dim}$$
+> - $n$ is the number of features in the vector, or in this case, $n = \mathrm{embedding\_dim}$
 > - $\mu$ is the mean that was calculated using the earlier mathematical model.
 >
 > $(x_i - \mu)$ tells us how far each feature is from the mean, and it is squared so that positive and negative distances don't cancel out, but also so that big deviations become more important.
