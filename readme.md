@@ -9,8 +9,24 @@
 # PyGPT — A Learning LLM Project
 
 ## Overview
-It's a GPT-like LLM that uses a plethora of sources that are visible in the `data_loader.py` file. 
+It's a GPT-like LLM that uses a plethora of sources that are visible in the `data_loader.py` file.
 This is used as more of a learning experience for myself to understand the concepts of what AI is, and how an LLM is made, and is fully customizable.
+
+## Quickstart
+### If on MacOS (METAL):
+```bash
+git clone JAX https://github.com/Albertlungu/PyGPT.git
+cd PyGPT
+./metal_setup.sh
+```
+### If on CUDA-enabled GPU:
+```bash
+git clone JAX https://github.com/Albertlungu/PyGPT.git
+cd PyGPT
+./cuda_setup.sh
+```
+
+Ngl if ur not on either of these ur lowkey cooked...
 
 ## Libraries used
 - numpy
@@ -480,9 +496,13 @@ Layer normalization is used to ensure stable training by flattening every featur
 > ***Mean***: the average of all the numbers in the embedding:
 >
 > For a vector
+>
 > $$x = [x_1, x_2, ..., x_n]$$
+>
 > The formula becomes:
+>
 > $$\mu = \frac{1}{n}\sum_{i=1}^n x_i$$
+>
 > ***Variance***: measure of how spread out the numbers are from that same mean (range):
 >
 >$$\sigma^2=\frac{1}{n}\sum_{i=1}^n(x_i-\mu)^2$$
